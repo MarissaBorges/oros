@@ -1,0 +1,76 @@
+body {
+  background-color: #09090b;
+  color: #fafafa;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Loader Styles */
+#loader {
+  perspective: 1200px;
+}
+
+.jarvis-core-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 30px;
+  background: #fbbf24;
+  border-radius: 50%;
+  box-shadow: 0 0 50px 20px rgba(251, 191, 36, 0.6);
+}
+
+/* Toasts */
+#toast-container {
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+}
+
+.process-card, .sources-block {
+  border: 1px solid #27272a;
+  border-radius: 0.75rem;
+  background: rgba(24, 24, 27, 0.45);
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+}
+.process-card summary, .sources-title {
+  color: #fbbf24;
+  cursor: pointer;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.process-card ol { margin: 0.75rem 0 0 1rem; display: grid; gap: 0.6rem; list-style: decimal; }
+.sources-title { margin-bottom: 0.6rem; }
+.source-card { display: flex; align-items: center; gap: 0.65rem; padding: 0.55rem 0; color: #fafafa; text-decoration: none; border-top: 1px solid rgba(63, 63, 70, 0.5); }
+.source-card:hover strong { color: #fbbf24; }
+.source-index { width: 1.4rem; height: 1.4rem; border: 1px solid #3f3f46; border-radius: 999px; display: grid; place-items: center; color: #fbbf24; font-size: 0.65rem; }
+.source-card strong, .source-card small { display: block; }
+.source-card small { color: #71717a; margin-top: 0.15rem; }
