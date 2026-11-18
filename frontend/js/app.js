@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-  const state = { view: "home", conversationId: null, currentNote: null, projects: [], notes: [], windows: [] };
+  const state = { view: "home", conversationId: null, currentNote: null, projects: [], notes: [], windows: [], voiceReply: false };
 
   const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;",
@@ -30,24 +30,112 @@ document.addEventListener("DOMContentLoaded", () => {
 
   $$("[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 
-  const savedTheme = localStorage.getItem("oros-theme") || "midnight";
-  document.documentElement.dataset.theme = savedTheme;
-  $$(".theme-card").forEach((card) => card.classList.toggle("active", card.dataset.theme === savedTheme));
+  const defaultPreferences = {
+    theme: "midnight",
+    font: "dm",
+    intensity: 72,
+    accent: "#a6f4c5",
+    background: "",
+  };
+  let preferences;
+  try {
+    preferences = { ...defaultPreferences, ...JSON.parse(localStorage.getItem("oros-preferences") || "{}") };
+  } catch {
+    preferences = { ...defaultPreferences };
+  }
+
+  const savePreferences = () => localStorage.setItem("oros-preferences", JSON.stringify(preferences));
+  const applyPreferences = () => {
+    document.documentElement.dataset.theme = preferences.theme;
+    document.documentElement.style.setProperty("--effect-intensity", preferences.intensity / 100);
+    document.documentElement.style.setProperty("--holo-opacity", String(Math.max(.18, preferences.intensity / 100)));
+    document.documentElement.style.setProperty("--accent", preferences.accent);
+    const hex = preferences.accent.replace("#", "");
+    const rgb = hex.length === 6
+      ? `${parseInt(hex.slice(0, 2), 16)}, ${parseInt(hex.slice(2, 4), 16)}, ${parseInt(hex.slice(4, 6), 16)}`
+      : "166, 244, 197";
+    document.documentElement.style.setProperty("--accent-rgb", rgb);
+    document.documentElement.style.setProperty("--custom-bg", preferences.background ? `url("${preferences.background}")` : "none");
+    const fontRules = {
+      dm: '"DM Sans", sans-serif',
+      inter: 'Inter, sans-serif',
+      mono: '"JetBrains Mono", monospace',
+      system: 'ui-sans-serif, system-ui, sans-serif',
+    };
+    document.documentElement.style.setProperty("--sans", fontRules[preferences.font] || fontRules.dm);
+    $$(".theme-card").forEach((card) => card.classList.toggle("active", card.dataset.theme === preferences.theme));
+  };
+
+  applyPreferences();
   $$(".theme-card").forEach((card) => card.addEventListener("click", () => {
-    document.documentElement.dataset.theme = card.dataset.theme;
-    localStorage.setItem("oros-theme", card.dataset.theme);
-    $$(".theme-card").forEach((item) => item.classList.toggle("active", item === card));
+    preferences.theme = card.dataset.theme;
+    savePreferences();
+    applyPreferences();
     toast("Tema atualizado", "palette");
   }));
   $("#theme-button").addEventListener("click", () => {
-    const themes = ["midnight", "aurora", "paper", "ember"];
-    const next = themes[(themes.indexOf(document.documentElement.dataset.theme) + 1) % themes.length];
-    document.documentElement.dataset.theme = next;
-    localStorage.setItem("oros-theme", next);
+    const themes = ["midnight", "singularity", "titanium", "aurora", "ember", "paper"];
+    const next = themes[(themes.indexOf(preferences.theme) + 1) % themes.length];
+    preferences.theme = next;
+    savePreferences();
+    applyPreferences();
     toast(`Tema ${next}`, "palette");
+  });
+  $("#font-family").value = preferences.font;
+  $("#font-family").addEventListener("change", (event) => {
+    preferences.font = event.target.value;
+    savePreferences();
+    applyPreferences();
+  });
+  $("#effect-intensity").value = preferences.intensity;
+  $("#effect-intensity").addEventListener("input", (event) => {
+    preferences.intensity = Number(event.target.value);
+    applyPreferences();
+  });
+  $("#effect-intensity").addEventListener("change", savePreferences);
+  $("#accent-color").value = preferences.accent;
+  $("#accent-color").addEventListener("input", (event) => {
+    preferences.accent = event.target.value;
+    applyPreferences();
+  });
+  $("#accent-color").addEventListener("change", savePreferences);
+  $("#background-image").addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      toast("Use PNG, JPEG ou WebP", "warning-circle");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast("Imagem maior que 5 MB", "warning-circle");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      preferences.background = reader.result;
+      savePreferences();
+      applyPreferences();
+      toast("Fundo personalizado ativado", "image");
+    };
+    reader.readAsDataURL(file);
+  });
+  $("#clear-background").addEventListener("click", () => {
+    preferences.background = "";
+    savePreferences();
+    applyPreferences();
+    toast("Fundo restaurado", "broom");
   });
 
   setTimeout(() => $("#boot").classList.add("done"), 900);
+
+  const now = new Date();
+  const day = now.toLocaleDateString("pt-BR", { weekday: "long" });
+  const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const greeting = now.getHours() < 12 ? "Bom dia" : now.getHours() < 18 ? "Boa tarde" : "Boa noite";
+  const homeHero = $(".home-hero h1");
+  if (homeHero) homeHero.innerHTML = `${greeting}, <em>Marissa.</em>`;
+  const homeEyebrow = $(".home-hero .eyebrow");
+  if (homeEyebrow) homeEyebrow.innerHTML = `<span></span> ${day} · ${time}`;
 
   async function api(path, options = {}) {
     const response = await fetch(path, options);
@@ -212,6 +300,15 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       $("#typing-message")?.remove();
       messages.insertAdjacentHTML("beforeend", renderMessage({ role: "assistant", content: payload.answer, payload }));
+      if (state.voiceReply && "speechSynthesis" in window) {
+        const spoken = payload.answer.replace(/[#*_`\[\]]/g, " ").slice(0, 1200);
+        const utterance = new SpeechSynthesisUtterance(spoken);
+        utterance.lang = "pt-BR";
+        utterance.rate = 1.04;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+        state.voiceReply = false;
+      }
       if (payload.conversation_id) state.conversationId = payload.conversation_id;
       await loadConversations();
     } catch (error) {
@@ -444,6 +541,212 @@ document.addEventListener("DOMContentLoaded", () => {
       if (event.key.toLowerCase() === "v") { event.preventDefault(); setView("vault"); }
     }
   });
+
+  function initHolographicCanvas() {
+    const canvas = $("#holo-canvas");
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    let width = 0;
+    let height = 0;
+    let particles = [];
+    const pointer = { x: innerWidth * .72, y: innerHeight * .28 };
+
+    const resize = () => {
+      const ratio = Math.min(devicePixelRatio || 1, 2);
+      width = innerWidth;
+      height = innerHeight;
+      canvas.width = width * ratio;
+      canvas.height = height * ratio;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      particles = Array.from({ length: Math.min(110, Math.floor(width * .07)) }, (_, index) => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        vx: (Math.random() - .5) * .12,
+        vy: (Math.random() - .5) * .12,
+        r: index % 11 === 0 ? 1.4 : .55 + Math.random() * .7,
+        phase: Math.random() * Math.PI * 2,
+      }));
+    };
+    window.addEventListener("resize", resize);
+    window.addEventListener("pointermove", (event) => {
+      pointer.x += (event.clientX - pointer.x) * .08;
+      pointer.y += (event.clientY - pointer.y) * .08;
+    });
+    resize();
+
+    const draw = (time) => {
+      context.clearRect(0, 0, width, height);
+      const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#a6f4c5";
+      for (const particle of particles) {
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        if (particle.x < 0) particle.x = width;
+        if (particle.x > width) particle.x = 0;
+        if (particle.y < 0) particle.y = height;
+        if (particle.y > height) particle.y = 0;
+        const dx = particle.x - pointer.x;
+        const dy = particle.y - pointer.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const glow = distance < 220 ? (1 - distance / 220) * .34 : 0;
+        context.beginPath();
+        context.fillStyle = accent;
+        context.globalAlpha = .12 + glow + Math.sin(time * .001 + particle.phase) * .03;
+        context.arc(particle.x, particle.y, particle.r + glow * 2, 0, Math.PI * 2);
+        context.fill();
+      }
+      const halo = Math.min(width, height) * .11;
+      context.save();
+      context.translate(pointer.x, pointer.y);
+      context.rotate(time * .00008);
+      for (let ring = 0; ring < 3; ring++) {
+        context.beginPath();
+        context.setLineDash([5 + ring * 3, 14 + ring * 8]);
+        context.lineDashOffset = -time * (.018 + ring * .006);
+        context.strokeStyle = accent;
+        context.globalAlpha = .08 - ring * .012;
+        context.lineWidth = ring === 0 ? 1.2 : .7;
+        context.ellipse(0, 0, halo + ring * 31, (halo + ring * 31) * (.48 + ring * .08), ring * .42, 0, Math.PI * 2);
+        context.stroke();
+      }
+      context.restore();
+      context.globalAlpha = 1;
+      requestAnimationFrame(draw);
+    };
+    requestAnimationFrame(draw);
+  }
+
+  function initVoiceInterface() {
+    const voiceButton = $("#voice-button");
+    const voiceConsole = $("#voice-console");
+    const voiceState = $("#voice-state");
+    const voiceTranscript = $("#voice-transcript");
+    const voiceStop = $("#voice-stop");
+    const bars = $("#voice-bars");
+    bars.innerHTML = Array.from({ length: 24 }, (_, index) =>
+      `<i style="animation-delay:${(index % 7) * -.09}s"></i>`
+    ).join("");
+
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let recognitionActive = false;
+    let mediaStream = null;
+    let audioContext = null;
+    let analyser = null;
+    let animationFrame = null;
+
+    const stopAudioAnalysis = () => {
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+      if (mediaStream) mediaStream.getTracks().forEach((track) => track.stop());
+      if (audioContext && audioContext.state !== "closed") audioContext.close().catch(() => {});
+      mediaStream = null;
+      audioContext = null;
+      analyser = null;
+    };
+
+    const stopVoice = () => {
+      recognitionActive = false;
+      if (recognition) {
+        try { recognition.stop(); } catch {}
+      }
+      stopAudioAnalysis();
+      voiceConsole.classList.remove("active", "listening");
+      voiceButton.classList.remove("listening");
+      voiceState.textContent = "Voz disponível";
+      voiceTranscript.textContent = "Toque no microfone para falar";
+    };
+
+    const startAudioAnalysis = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) return;
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContext = new AudioContext();
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 64;
+        const source = audioContext.createMediaStreamSource(mediaStream);
+        source.connect(analyser);
+        const values = new Uint8Array(analyser.frequencyBinCount);
+        const animateBars = () => {
+          analyser.getByteFrequencyData(values);
+          $$("#voice-bars i").forEach((bar, index) => {
+            const level = values[index % values.length] / 255;
+            bar.style.height = `${4 + level * 27}px`;
+            bar.style.opacity = String(.35 + level * .65);
+          });
+          animationFrame = requestAnimationFrame(animateBars);
+        };
+        animateBars();
+      } catch (error) {
+        voiceTranscript.textContent = "Permissão de microfone recusada";
+        toast("Permita o microfone para ativar a voz", "microphone-slash");
+      }
+    };
+
+    const startVoice = async () => {
+      if (!Recognition) {
+        voiceConsole.classList.add("active");
+        voiceState.textContent = "Recurso indisponível";
+        voiceTranscript.textContent = "Seu navegador não oferece reconhecimento de voz";
+        toast("Reconhecimento de voz não suportado", "warning-circle");
+        return;
+      }
+      state.voiceReply = true;
+      recognition = new Recognition();
+      recognition.lang = "pt-BR";
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.onstart = () => {
+        recognitionActive = true;
+        voiceConsole.classList.add("active", "listening");
+        voiceButton.classList.add("listening");
+        voiceState.textContent = "Escutando...";
+        voiceTranscript.textContent = "Pode falar";
+        startAudioAnalysis();
+      };
+      recognition.onresult = (event) => {
+        let finalText = "";
+        let interimText = "";
+        for (let index = event.resultIndex; index < event.results.length; index++) {
+          if (event.results[index].isFinal) finalText += event.results[index][0].transcript;
+          else interimText += event.results[index][0].transcript;
+        }
+        voiceTranscript.textContent = finalText || interimText || "Pode falar";
+        if (finalText) {
+          $("#chat-input").value = finalText.trim();
+          recognition.stop();
+        }
+      };
+      recognition.onerror = (event) => {
+        voiceState.textContent = "Reconhecimento interrompido";
+        voiceTranscript.textContent = event.error === "not-allowed" ? "Permissão de microfone recusada" : `Erro: ${event.error}`;
+      };
+      recognition.onend = () => {
+        if (recognitionActive) {
+          recognitionActive = false;
+          stopAudioAnalysis();
+          voiceConsole.classList.remove("listening");
+          voiceButton.classList.remove("listening");
+          voiceState.textContent = "Transcrição concluída";
+          const text = $("#chat-input").value.trim();
+          if (text) setTimeout(sendMessage, 180);
+        }
+      };
+      recognition.start();
+    };
+
+    voiceButton.addEventListener("click", () => {
+      if (recognitionActive) stopVoice();
+      else {
+        setView("chat");
+        startVoice();
+      }
+    });
+    voiceStop.addEventListener("click", stopVoice);
+  }
+
+  initHolographicCanvas();
+  initVoiceInterface();
 
   loadStatus();
   loadConversations();

@@ -14,6 +14,14 @@
   <script src="js/app.js" defer></script>
 </head>
 <body>
+  <canvas id="holo-canvas" class="holo-canvas" aria-hidden="true"></canvas>
+  <div class="atmosphere" aria-hidden="true">
+    <div class="atmosphere-orb atmosphere-orb-a"></div>
+    <div class="atmosphere-orb atmosphere-orb-b"></div>
+    <div class="atmosphere-grid"></div>
+    <div class="atmosphere-noise"></div>
+  </div>
+
   <div id="boot" class="boot" aria-hidden="true">
     <div class="boot-mark"><span></span><span></span><span></span></div>
     <div class="boot-copy">OROS</div>
@@ -177,8 +185,15 @@
               <div class="composer-wrap">
                 <div class="composer">
                   <button class="composer-tool" id="attach-screen" title="Anexar captura"><i class="ph ph-monitor-arrow-up"></i></button>
+                  <button class="composer-tool voice-button" id="voice-button" title="Falar com o OROS"><i class="ph ph-microphone"></i></button>
                   <textarea id="chat-input" rows="1" placeholder="Pergunte ou dê uma instrução..."></textarea>
                   <button class="send-button" id="send-message" title="Enviar"><i class="ph ph-arrow-up"></i></button>
+                </div>
+                <div class="voice-console" id="voice-console">
+                  <div class="voice-orb" id="voice-orb"><span></span><span></span><span></span></div>
+                  <div class="voice-bars" id="voice-bars" aria-hidden="true"></div>
+                  <div class="voice-copy"><strong id="voice-state">Voz disponível</strong><span id="voice-transcript">Toque no microfone para falar</span></div>
+                  <button class="icon-button" id="voice-stop" title="Parar"><i class="ph ph-stop"></i></button>
                 </div>
                 <div class="composer-meta"><span><i class="ph ph-shield-check"></i> Ações sensíveis requerem confirmação</span><span id="chat-status">OROS 1.0</span></div>
               </div>
@@ -257,9 +272,38 @@
                 <div class="panel-head"><div><span class="panel-kicker">APARÊNCIA</span><h2>Temas</h2></div></div>
                 <div class="theme-options">
                   <button data-theme="midnight" class="theme-card active"><span class="theme-preview midnight-preview"></span><strong>Midnight</strong></button>
+                  <button data-theme="singularity" class="theme-card"><span class="theme-preview singularity-preview"></span><strong>Singularity</strong></button>
+                  <button data-theme="titanium" class="theme-card"><span class="theme-preview titanium-preview"></span><strong>Titanium</strong></button>
                   <button data-theme="aurora" class="theme-card"><span class="theme-preview aurora-preview"></span><strong>Aurora</strong></button>
-                  <button data-theme="paper" class="theme-card"><span class="theme-preview paper-preview"></span><strong>Paper</strong></button>
                   <button data-theme="ember" class="theme-card"><span class="theme-preview ember-preview"></span><strong>Ember</strong></button>
+                  <button data-theme="paper" class="theme-card"><span class="theme-preview paper-preview"></span><strong>Paper</strong></button>
+                </div>
+              </article>
+              <article class="panel personal-panel">
+                <div class="panel-head"><div><span class="panel-kicker">MESTRE DA INTERFACE</span><h2>Personalização</h2></div></div>
+                <div class="personal-controls">
+                  <label>
+                    <span>Tipografia</span>
+                    <select id="font-family">
+                      <option value="dm">DM Sans + Instrument Serif</option>
+                      <option value="inter">Inter</option>
+                      <option value="mono">JetBrains Mono</option>
+                      <option value="system">Sistema</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Intensidade dos efeitos</span>
+                    <input id="effect-intensity" type="range" min="20" max="100" value="72">
+                  </label>
+                  <label>
+                    <span>Cor de destaque</span>
+                    <input id="accent-color" type="color" value="#a6f4c5">
+                  </label>
+                  <label>
+                    <span>Fundo personalizado</span>
+                    <input id="background-image" type="file" accept="image/png,image/jpeg,image/webp">
+                  </label>
+                  <button class="glass-button" id="clear-background"><i class="ph ph-broom"></i> Remover fundo</button>
                 </div>
               </article>
               <article class="panel">
