@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const setView = (view) => {
     const names = { home: "Começo", chat: "Conversas", vault: "Meu vault", projects: "Projetos", desktop: "Desktop", settings: "Personalização" };
     state.view = view;
+    document.body.classList.toggle("module-mode", view !== "home");
     $$(".view").forEach((item) => item.classList.toggle("active", item.id === `view-${view}`));
     $$(".rail-button[data-view]").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
     $$(".context-nav button").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
@@ -126,7 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
     toast("Fundo restaurado", "broom");
   });
 
-  setTimeout(() => $("#boot").classList.add("done"), 900);
+  setTimeout(() => $("#boot").classList.add("done"), 1800);
 
   const now = new Date();
   const day = now.toLocaleDateString("pt-BR", { weekday: "long" });
@@ -579,38 +580,109 @@ document.addEventListener("DOMContentLoaded", () => {
     const draw = (time) => {
       context.clearRect(0, 0, width, height);
       const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() || "#a6f4c5";
-      for (const particle of particles) {
-        particle.x += particle.vx;
-        particle.y += particle.vy;
-        if (particle.x < 0) particle.x = width;
-        if (particle.x > width) particle.x = 0;
-        if (particle.y < 0) particle.y = height;
-        if (particle.y > height) particle.y = 0;
-        const dx = particle.x - pointer.x;
-        const dy = particle.y - pointer.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        const glow = distance < 220 ? (1 - distance / 220) * .34 : 0;
-        context.beginPath();
-        context.fillStyle = accent;
-        context.globalAlpha = .12 + glow + Math.sin(time * .001 + particle.phase) * .03;
-        context.arc(particle.x, particle.y, particle.r + glow * 2, 0, Math.PI * 2);
-        context.fill();
+      const theme = document.documentElement.dataset.theme;
+
+      if (theme === "titanium") {
+        context.font = "11px JetBrains Mono";
+        const columns = Math.ceil(width / 22);
+        for (let column = 0; column < columns; column++) {
+          const seed = (column * 47 + Math.floor(time * .018)) % 83;
+          const x = column * 22 + 8;
+          for (let row = 0; row < 14; row++) {
+            const y = ((seed * 19 + row * 24 + time * .055) % (height + 100)) - 50;
+            const glyph = "01アイウエオカキクケコサシスセソ"[((seed + row + column) % 34)];
+            context.globalAlpha = .08 + (row / 14) * .13;
+            context.fillStyle = row > 11 ? "#d9fff5" : accent;
+            context.fillText(glyph, x, y);
+          }
+        }
+      } else if (theme === "ember") {
+        context.globalCompositeOperation = "lighter";
+        for (let i = 0; i < 46; i++) {
+          const x = (i * 197.3 + time * (.018 + (i % 5) * .005)) % (width + 40) - 20;
+          const y = height - ((i * 83.7 + time * (.08 + (i % 7) * .01)) % height);
+          context.beginPath();
+          context.fillStyle = i % 3 ? "#ffb36b" : "#ff6e40";
+          context.globalAlpha = .10 + (i % 5) * .025;
+          context.arc(x, y, .5 + (i % 4) * .55, 0, Math.PI * 2);
+          context.fill();
+        }
+        context.globalCompositeOperation = "source-over";
+      } else if (theme === "singularity") {
+        const nodes = state.notes.length ? state.notes.slice(0, 42) : particles.slice(0, 42);
+        for (let i = 0; i < nodes.length; i++) {
+          const node = nodes[i];
+          const x = width * (.18 + ((i * 67 + i * i * 13) % 74) / 100);
+          const y = height * (.12 + ((i * 41 + i * i * 7) % 74) / 100);
+          const pulse = 1 + Math.sin(time * .0012 + i) * .18;
+          for (let j = i + 1; j < nodes.length; j++) {
+            if ((i * 7 + j * 3) % 13 !== 0) continue;
+            const jx = width * (.18 + ((j * 67 + j * j * 13) % 74) / 100);
+            const jy = height * (.12 + ((j * 41 + j * j * 7) % 74) / 100);
+            context.beginPath();
+            context.strokeStyle = accent;
+            context.globalAlpha = .055;
+            context.moveTo(x, y);
+            context.quadraticCurveTo((x + jx) / 2 + Math.sin(time * .0003) * 40, (y + jy) / 2, jx, jy);
+            context.stroke();
+          }
+          context.beginPath();
+          context.fillStyle = i % 9 === 0 ? "#74d8ff" : accent;
+          context.globalAlpha = i % 9 === 0 ? .55 : .24;
+          context.arc(x, y, (i % 9 === 0 ? 2.2 : 1.2) * pulse, 0, Math.PI * 2);
+          context.fill();
+        }
+      } else {
+        for (const particle of particles) {
+          particle.x += particle.vx * (theme === "aurora" ? 1.7 : 1);
+          particle.y += particle.vy * (theme === "aurora" ? 1.7 : 1);
+          if (particle.x < 0) particle.x = width;
+          if (particle.x > width) particle.x = 0;
+          if (particle.y < 0) particle.y = height;
+          if (particle.y > height) particle.y = 0;
+          const dx = particle.x - pointer.x;
+          const dy = particle.y - pointer.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          const glow = distance < 220 ? (1 - distance / 220) * .34 : 0;
+          context.beginPath();
+          context.fillStyle = accent;
+          context.globalAlpha = (theme === "paper" ? .06 : .12) + glow;
+          context.arc(particle.x, particle.y, particle.r + glow * 2, 0, Math.PI * 2);
+          context.fill();
+        }
+        if (theme === "aurora") {
+          context.save();
+          context.globalCompositeOperation = "lighter";
+          for (let ribbon = 0; ribbon < 4; ribbon++) {
+            context.beginPath();
+            for (let x = -50; x <= width + 50; x += 18) {
+              const y = height * (.22 + ribbon * .11) + Math.sin(x * .007 + time * .00045 + ribbon) * (24 + ribbon * 5);
+              if (x === -50) context.moveTo(x, y); else context.lineTo(x, y);
+            }
+            context.strokeStyle = ribbon % 2 ? "#70a7ff" : accent;
+            context.globalAlpha = .055;
+            context.lineWidth = 18 - ribbon * 3;
+            context.filter = "blur(12px)";
+            context.stroke();
+          }
+          context.restore();
+        }
+        const halo = Math.min(width, height) * .11;
+        context.save();
+        context.translate(pointer.x, pointer.y);
+        context.rotate(time * .00008);
+        for (let ring = 0; ring < 3; ring++) {
+          context.beginPath();
+          context.setLineDash([5 + ring * 3, 14 + ring * 8]);
+          context.lineDashOffset = -time * (.018 + ring * .006);
+          context.strokeStyle = accent;
+          context.globalAlpha = .08 - ring * .012;
+          context.lineWidth = ring === 0 ? 1.2 : .7;
+          context.ellipse(0, 0, halo + ring * 31, (halo + ring * 31) * (.48 + ring * .08), ring * .42, 0, Math.PI * 2);
+          context.stroke();
+        }
+        context.restore();
       }
-      const halo = Math.min(width, height) * .11;
-      context.save();
-      context.translate(pointer.x, pointer.y);
-      context.rotate(time * .00008);
-      for (let ring = 0; ring < 3; ring++) {
-        context.beginPath();
-        context.setLineDash([5 + ring * 3, 14 + ring * 8]);
-        context.lineDashOffset = -time * (.018 + ring * .006);
-        context.strokeStyle = accent;
-        context.globalAlpha = .08 - ring * .012;
-        context.lineWidth = ring === 0 ? 1.2 : .7;
-        context.ellipse(0, 0, halo + ring * 31, (halo + ring * 31) * (.48 + ring * .08), ring * .42, 0, Math.PI * 2);
-        context.stroke();
-      }
-      context.restore();
       context.globalAlpha = 1;
       requestAnimationFrame(draw);
     };
