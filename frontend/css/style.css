@@ -895,12 +895,19 @@ body.chat-immersive .chat-messages {
 body.chat-immersive .chat-oros-core {
   width:min(1180px,118vw);
   height:min(1180px,118vh);
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
   opacity:1;
-  filter:drop-shadow(0 0 48px rgba(var(--accent-rgb),.16));
+  filter:
+    brightness(1.55)
+    contrast(1.15)
+    saturate(1.42)
+    drop-shadow(0 0 64px rgba(var(--accent-rgb),.28));
 }
 body.chat-immersive .chat-messages.conversation-active .chat-oros-core {
-  opacity:.88;
-  transform:translate(-50%,-50%) scale(.92);
+  opacity:1;
+  transform:translate(-50%,-50%) scale(.96);
 }
 body.chat-immersive .welcome-state {
   height:100%;
