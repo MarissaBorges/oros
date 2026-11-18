@@ -69,3 +69,27 @@ preserve OROS source citations. Next milestones can add:
 ## License
 
 MIT License. See [LICENSE](LICENSE).
+
+## OROS autonomous capabilities
+
+The implementation uses the vendored OpenJarvis runtime at
+[`vendor/OpenJarvis`](vendor/OpenJarvis). It is intended to share OpenJarvis
+primitives instead of recreating agents, tools, connectors, memory, routing,
+scheduling, or sandbox logic.
+
+Current capability endpoints:
+
+- `GET /api/capabilities/status`
+- `POST /api/capabilities/screen/capture`
+- `GET /api/capabilities/screen/image`
+- `GET /api/capabilities/windows`
+- `POST /api/capabilities/open`
+- `GET /api/vault/notes`
+- `GET /api/vault/note?path=...`
+- `POST /api/vault/note`
+- `PUT /api/vault/note`
+- `DELETE /api/vault/note?path=...`
+- `POST /api/terminal/run`
+
+Read [the architecture](docs/ARCHITECTURE.md), [capability setup](docs/CAPABILITIES.md),
+[Google accounts](docs/GOOGLE_ACCOUNTS.md), and [the expansion roadmap](docs/ROADMAP.md).

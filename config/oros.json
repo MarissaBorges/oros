@@ -1,0 +1,23 @@
+{
+  "vault": "/home/borges/minha-mente",
+  "allowed_project_dirs": [
+    "/home/borges/dev"
+  ],
+  "allowed_shell_dirs": [
+    "/home/borges/dev",
+    "/home/borges/minha-mente"
+  ],
+  "autonomy": "automacao_ampla_com_aprovacao_para_riscos",
+  "browser_mode": "ambos",
+  "browser_preferred": "google-chrome",
+  "capture_dir": "/tmp/oros-captures",
+  "blocked_shell_patterns": [
+    "rm -rf /",
+    "mkfs.",
+    "dd if=",
+    ":(){",
+    "shutdown",
+    "reboot",
+    "poweroff"
+  ]
+}

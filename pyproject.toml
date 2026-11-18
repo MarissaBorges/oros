@@ -1,0 +1,21 @@
+[project]
+name = "oros"
+version = "0.1.0"
+description = "Local autonomous assistant capabilities built on OpenJarvis"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "django>=5",
+  "requests>=2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+]
+browser = [
+  "playwright>=1.40",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
