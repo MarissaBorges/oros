@@ -18,7 +18,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const setView = (view) => {
     const names = { home: "Começo", chat: "Conversas", vault: "Meu vault", projects: "Projetos", desktop: "Desktop", settings: "Personalização" };
     state.view = view;
-    document.body.classList.toggle("chat-immersive", view === "chat");
+    // Chat is a normal workspace view unless immersive mode is explicitly opened.
+    if (view !== "chat") document.body.classList.remove("chat-immersive");
     document.body.classList.toggle("module-mode", view !== "home");
     $$(".view").forEach((item) => item.classList.toggle("active", item.id === `view-${view}`));
     $$(".rail-button[data-view]").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
@@ -197,8 +198,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function api(path, options = {}) {
     const response = await fetch(path, options);
-    const payload = await response.json();
-    if (!response.ok) throw new Error(payload.error || "Falha na operação");
+    const contentType = response.headers.get("content-type") || "";
+    let payload;
+    if (contentType.includes("application/json")) {
+      try {
+        payload = await response.json();
+      } catch {
+        payload = null;
+      }
+    } else {
+      const text = await response.text();
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = { error: text || "Resposta inválida do servidor." };
+      }
+    }
+    if (!response.ok) {
+      throw new Error(payload?.error || `Falha na operação (${response.status})`);
+    }
+    if (!payload || typeof payload !== "object") {
+      throw new Error("O servidor retornou uma resposta vazia ou inválida.");
+    }
     return payload;
   }
 
@@ -410,6 +431,12 @@ document.addEventListener("DOMContentLoaded", () => {
     event.target.style.height = `${Math.min(event.target.scrollHeight, 160)}px`;
   });
   $("#new-chat").addEventListener("click", createConversation);
+  $("#immersive-chat-toggle")?.addEventListener("click", () => {
+    document.body.classList.toggle("chat-immersive");
+    const immersive = document.body.classList.contains("chat-immersive");
+    $("#immersive-chat-toggle")?.setAttribute("aria-pressed", String(immersive));
+    setTimeout(() => setOrosCoreState(immersive ? "listening" : "idle"), 80);
+  });
   bindSuggestions();
 
   $("#home-command-send").addEventListener("click", () => {
@@ -705,7 +732,11 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#quick-search").addEventListener("click", () => toast("Busca rápida em desenvolvimento", "magnifying-glass"));
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && state.view === "chat") {
-      setView("home");
+      if (document.body.classList.contains("chat-immersive")) {
+        document.body.classList.remove("chat-immersive");
+        $("#immersive-chat-toggle")?.setAttribute("aria-pressed", "false");
+        setOrosCoreState("idle");
+      }
       return;
     }
     if (event.metaKey || event.ctrlKey) {
@@ -942,6 +973,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       if (automatic) wakeArmed = true;
+      document.body.classList.add("chat-immersive");
       localStorage.setItem("oros-hands-free", "true");
       recognition = new Recognition();
       recognition.lang = "pt-BR";
