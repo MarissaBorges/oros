@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-  const state = { view: "home", conversationId: null, currentNote: null, projects: [], notes: [], windows: [], voiceReply: false };
+  const state = { view: "home", conversationId: null, currentNote: null, projects: [], notes: [], windows: [], voiceReply: false, coreState: "idle" };
 
   const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;",
@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const setView = (view) => {
     const names = { home: "Começo", chat: "Conversas", vault: "Meu vault", projects: "Projetos", desktop: "Desktop", settings: "Personalização" };
     state.view = view;
+    document.body.classList.toggle("chat-immersive", view === "chat");
     document.body.classList.toggle("module-mode", view !== "home");
     $$(".view").forEach((item) => item.classList.toggle("active", item.id === `view-${view}`));
     $$(".rail-button[data-view]").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
@@ -39,12 +40,23 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   function setOrosCoreState(cognitiveState) {
-    $$(".oros-core-frame,.oros-chat-core").forEach((frame) => {
+    const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+    const accent2 = getComputedStyle(document.documentElement).getPropertyValue("--accent-2").trim();
+    $$(".oros-core-frame,.oros-chat-core,#chat-oros-core").forEach((frame) => {
       frame.contentWindow?.postMessage(
-        { type: "OROS_COGNITIVE_STATE", state: cognitiveState },
+        { type: "OROS_COGNITIVE_STATE", state: cognitiveState, accent, accent2 },
         "*",
       );
     });
+  }
+
+  function setChatLiveCaption(text, mode = "") {
+    const caption = $("#chat-live-caption");
+    if (!caption) return;
+    const clean = String(text || "").replace(/[#*_`]/g, "").trim();
+    caption.textContent = clean;
+    caption.classList.toggle("visible", Boolean(clean));
+    caption.dataset.mode = mode;
   }
 
   $$("[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
@@ -92,6 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     document.documentElement.style.setProperty("--sans", fontRules[preferences.font] || fontRules.dm);
     $$(".theme-card").forEach((card) => card.classList.toggle("active", card.dataset.theme === preferences.theme));
+    setTimeout(() => setOrosCoreState(state.view === "chat" ? "idle" : "idle"), 0);
   };
 
   applyPreferences();
@@ -280,12 +293,16 @@ document.addEventListener("DOMContentLoaded", () => {
     state.conversationId = payload.conversation_id;
     $("#chat-title").textContent = "Nova conversa";
     $("#chat-messages").innerHTML = welcomeHtml();
+    $("#chat-messages").insertAdjacentHTML("afterbegin", `<iframe id="chat-oros-core" class="chat-oros-core" src="/oros-core.svg" title="Núcleo orbital do OROS"></iframe>`);
+    $("#chat-messages").classList.remove("conversation-active");
+    setChatLiveCaption("", "idle");
+    setTimeout(() => setOrosCoreState("idle"), 80);
     bindSuggestions();
     await loadConversations();
   }
 
   function welcomeHtml() {
-    return `<div class="welcome-state"><iframe id="oros-chat-core" class="oros-chat-core" src="/oros-core.svg" title="Núcleo cognitivo do OROS"></iframe><h2>Como posso ajudar?</h2><p>Posso navegar, escrever no vault, analisar projetos e controlar o ambiente.</p><div class="suggestions"><button data-prompt="Resuma os projetos que estou desenvolvendo e sugira prioridades">Resumir meus projetos</button><button data-prompt="Analise minha tela atual e diga o que você vê">Analisar minha tela</button><button data-prompt="Crie uma nota de planejamento na pasta 01 Projetos">Criar plano no vault</button></div></div>`;
+    return `<div class="welcome-state"><div id="chat-live-caption" class="chat-live-caption"></div></div>`;
   }
 
   function bindSuggestions() {
@@ -299,7 +316,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const payload = await api(`/api/chat/history/${id}`);
     state.conversationId = id;
     $("#chat-title").textContent = payload.conversation.title;
-    $("#chat-messages").innerHTML = payload.messages.map(renderMessage).join("") || welcomeHtml();
+    $("#chat-messages").innerHTML = `<iframe id="chat-oros-core" class="chat-oros-core" src="/oros-core.svg" title="Núcleo orbital do OROS"></iframe>${payload.messages.map(renderMessage).join("") || welcomeHtml()}`;
+    $("#chat-messages").classList.toggle("conversation-active", payload.messages.length > 0);
+    const lastAssistant = [...payload.messages].reverse().find((message) => message.role === "assistant");
+    setChatLiveCaption(lastAssistant?.content || "", "oros");
+    setTimeout(() => setOrosCoreState(payload.messages.length ? "idle" : "idle"), 80);
     await loadConversations();
     bindSuggestions();
     $("#chat-messages").scrollTop = $("#chat-messages").scrollHeight;
@@ -332,8 +353,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!state.conversationId) {
       await createConversation();
     }
+    setChatLiveCaption(message, "you");
     const messages = $("#chat-messages");
     messages.querySelector(".welcome-state")?.remove();
+    messages.classList.add("conversation-active");
     messages.insertAdjacentHTML("beforeend", renderMessage({ role: "user", content: message }));
     messages.insertAdjacentHTML("beforeend", `<article class="message assistant" id="typing-message"><div class="message-avatar"><i class="ph ph-sparkle"></i></div><div class="message-body"><div class="message-meta"><strong>OROS</strong></div><div class="typing"><i></i><i></i><i></i></div></div></article>`);
     input.value = "";
@@ -350,6 +373,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
       $("#typing-message")?.remove();
       messages.insertAdjacentHTML("beforeend", renderMessage({ role: "assistant", content: payload.answer, payload }));
+      setChatLiveCaption(payload.answer, "oros");
       if (state.voiceReply && "speechSynthesis" in window) {
         setOrosCoreState("speaking");
         const spoken = payload.answer.replace(/[#*_`\[\]]/g, " ").slice(0, 1200);
@@ -680,6 +704,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   $("#quick-search").addEventListener("click", () => toast("Busca rápida em desenvolvimento", "magnifying-glass"));
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && state.view === "chat") {
+      setView("home");
+      return;
+    }
     if (event.metaKey || event.ctrlKey) {
       if (event.key.toLowerCase() === "h") { event.preventDefault(); setView("home"); }
       if (event.key.toLowerCase() === "v") { event.preventDefault(); setView("vault"); }
@@ -938,6 +966,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         const heard = (finalText || interimText || "").trim();
         voiceTranscript.textContent = heard || 'Diga "OROS"';
+        if (heard) setChatLiveCaption(heard, "you");
         if (finalText) {
           const normalized = finalText.toLowerCase();
           const wakeMatch = normalized.match(/\b(?:oros|joros|óros|jarvis)\b/i);

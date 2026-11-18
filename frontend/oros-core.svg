@@ -796,9 +796,18 @@
         // =========================================================================
         // CONTROLE DE ESTADOS, EVENTOS E LOOP PRINCIPAL (60 FPS)
         // =========================================================================
-        function setCognitiveState(newState) {
+        let accentOverride = "";
+        let accentSecondaryOverride = "";
+
+        function setCognitiveState(newState, accent, accent2) {
             if (!STATES[newState]) return;
             sim.state = newState;
+            if (accent) accentOverride = accent;
+            if (accent2) accentSecondaryOverride = accent2;
+            for (const key of Object.keys(STATES)) {
+                if (accentOverride) STATES[key].primary = accentOverride;
+                if (accentSecondaryOverride) STATES[key].secondary = accentSecondaryOverride;
+            }
 
             document.querySelectorAll('.state-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.state === newState);
@@ -964,7 +973,7 @@
         });
     
 window.setOrosCognitiveState=setCognitiveState;
-window.addEventListener('message',(event)=>{if(event.data?.type==='OROS_COGNITIVE_STATE') setCognitiveState(event.data.state); if(event.data?.type==='OROS_PING' && window.PingSystem) PingSystem.fire();});
+window.addEventListener('message',(event)=>{if(event.data?.type==='OROS_COGNITIVE_STATE') setCognitiveState(event.data.state,event.data.accent,event.data.accent2); if(event.data?.type==='OROS_PING' && window.PingSystem) PingSystem.fire();});
 
 ]]></script>
 </svg>

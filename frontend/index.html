@@ -176,18 +176,15 @@
                   <span class="presence"><i></i> OROS conectado</span>
                   <h2 id="chat-title">Nova conversa</h2>
                 </div>
-                <button class="icon-button" id="chat-options"><i class="ph ph-dots-three"></i></button>
+                <div class="chat-top-actions">
+                  <button class="icon-button" id="core-fullscreen" title="Modo núcleo em tela cheia"><i class="ph ph-corners-out"></i></button>
+                  <button class="icon-button" id="chat-options"><i class="ph ph-dots-three"></i></button>
+                </div>
               </div>
               <div id="chat-messages" class="chat-messages">
+                <iframe id="chat-oros-core" class="chat-oros-core" src="/oros-core.svg" title="Núcleo orbital do OROS"></iframe>
                 <div class="welcome-state">
-                  <iframe id="oros-chat-core" class="oros-chat-core" src="/oros-core.svg" title="Núcleo cognitivo do OROS"></iframe>
-                  <h2>Como posso ajudar?</h2>
-                  <p>Posso navegar, escrever no vault, analisar projetos e controlar o ambiente.</p>
-                  <div class="suggestions">
-                    <button data-prompt="Resuma os projetos que estou desenvolvendo e sugira prioridades">Resumir meus projetos</button>
-                    <button data-prompt="Analise minha tela atual e diga o que você vê">Analisar minha tela</button>
-                    <button data-prompt="Crie uma nota de planejamento na pasta 01 Projetos">Criar plano no vault</button>
-                  </div>
+                  <div id="chat-live-caption" class="chat-live-caption"></div>
                 </div>
               </div>
               <div class="composer-wrap">
@@ -345,5 +342,9 @@
   </div>
 
   <div id="toast-region" class="toast-region"></div>
+  <div id="core-focus-layer" class="core-focus-layer" aria-hidden="true">
+    <iframe id="core-focus-frame" src="/oros-core.svg" title="OROS em modo núcleo"></iframe>
+    <button id="core-focus-close" class="core-focus-close" title="Fechar modo núcleo"><i class="ph ph-x"></i></button>
+  </div>
 </body>
 </html>
