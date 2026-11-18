@@ -494,27 +494,27 @@ html[data-theme="paper"] .workspace { background:rgba(235,232,223,.62); }
   gap:10px;
 }
 .oros-core-frame {
-  width:280px;
-  height:150px;
-  border:1px solid var(--border);
-  border-radius:18px;
-  background:rgba(3,5,8,.72);
-  box-shadow:0 18px 52px rgba(0,0,0,.24),0 0 38px var(--accent-glow);
+  width:220px;
+  height:220px;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
   overflow:hidden;
   transition:transform .32s ease,border-color .32s ease,box-shadow .32s ease;
 }
 .oros-core-frame:hover {
   transform:translateY(-3px) scale(1.015);
-  border-color:rgba(var(--accent-rgb),.24);
+  filter:drop-shadow(0 0 18px var(--accent-glow));
 }
 .oros-chat-core {
   width:min(320px,58vw);
   height:270px;
-  border:1px solid rgba(var(--accent-rgb),.12);
-  border-radius:22px;
-  background:#030508;
+  border:0;
+  border-radius:0;
+  background:transparent;
   margin:-18px 0 8px;
-  box-shadow:0 26px 80px rgba(0,0,0,.34),0 0 70px var(--accent-glow);
+  box-shadow:none;
   overflow:hidden;
   animation:coreEnter .8s cubic-bezier(.22,.68,0,1) both;
 }

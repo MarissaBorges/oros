@@ -285,7 +285,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function welcomeHtml() {
-    return `<div class="welcome-state"><iframe id="oros-chat-core" class="oros-chat-core" src="/oros-core.html" title="Núcleo cognitivo do OROS"></iframe><h2>Como posso ajudar?</h2><p>Posso navegar, escrever no vault, analisar projetos e controlar o ambiente.</p><div class="suggestions"><button data-prompt="Resuma os projetos que estou desenvolvendo e sugira prioridades">Resumir meus projetos</button><button data-prompt="Analise minha tela atual e diga o que você vê">Analisar minha tela</button><button data-prompt="Crie uma nota de planejamento na pasta 01 Projetos">Criar plano no vault</button></div></div>`;
+    return `<div class="welcome-state"><iframe id="oros-chat-core" class="oros-chat-core" src="/oros-core.svg" title="Núcleo cognitivo do OROS"></iframe><h2>Como posso ajudar?</h2><p>Posso navegar, escrever no vault, analisar projetos e controlar o ambiente.</p><div class="suggestions"><button data-prompt="Resuma os projetos que estou desenvolvendo e sugira prioridades">Resumir meus projetos</button><button data-prompt="Analise minha tela atual e diga o que você vê">Analisar minha tela</button><button data-prompt="Crie uma nota de planejamento na pasta 01 Projetos">Criar plano no vault</button></div></div>`;
   }
 
   function bindSuggestions() {
