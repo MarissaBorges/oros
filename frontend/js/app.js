@@ -22,6 +22,15 @@ document.addEventListener("DOMContentLoaded", () => {
     $$(".view").forEach((item) => item.classList.toggle("active", item.id === `view-${view}`));
     $$(".rail-button[data-view]").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
     $$(".context-nav button").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
+    const activeView = $(`#view-${view}`);
+    if (activeView) {
+      activeView.querySelectorAll(".panel,.project-card,.continue-item,.module-header,.home-hero,.command-card").forEach((item, index) => {
+        item.classList.remove("fx-enter-up");
+        void item.offsetWidth;
+        item.classList.add("fx-enter-up");
+        item.style.animationDelay = `${Math.min(index * 35, 280)}ms`;
+      });
+    }
     $("#breadcrumbs").innerHTML = `<span>Workspace</span><i class="ph ph-caret-right"></i><strong>${names[view]}</strong>`;
     if (view === "chat") loadConversations();
     if (view === "vault") loadVaultNotes();
@@ -30,6 +39,15 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   $$("[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
+
+  const sidebarCollapse = $("#sidebar-collapse");
+  const restoreSidebar = localStorage.getItem("oros-sidebar-collapsed") === "true";
+  if (restoreSidebar) document.querySelector(".app-shell").classList.add("sidebar-collapsed");
+  sidebarCollapse?.addEventListener("click", () => {
+    const shell = document.querySelector(".app-shell");
+    shell.classList.toggle("sidebar-collapsed");
+    localStorage.setItem("oros-sidebar-collapsed", String(shell.classList.contains("sidebar-collapsed")));
+  });
 
   const defaultPreferences = {
     theme: "midnight",
@@ -134,7 +152,24 @@ document.addEventListener("DOMContentLoaded", () => {
   const time = now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const greeting = now.getHours() < 12 ? "Bom dia" : now.getHours() < 18 ? "Boa tarde" : "Boa noite";
   const homeHero = $(".home-hero h1");
-  if (homeHero) homeHero.innerHTML = `${greeting}, <em>Marissa.</em>`;
+  if (homeHero) {
+    homeHero.classList.add("terminal-title");
+    const fullText = `${greeting}, Marissa.`;
+    homeHero.innerHTML = `<em></em>`;
+    const target = homeHero.querySelector("em");
+    let typed = 0;
+    const typeGreeting = () => {
+      if (typed >= fullText.length) {
+        target.textContent = fullText;
+        return;
+      }
+      const character = fullText[typed];
+      target.textContent += character;
+      typed++;
+      setTimeout(typeGreeting, 35 + (typed % 4) * 18);
+    };
+    setTimeout(typeGreeting, 350);
+  }
   const homeEyebrow = $(".home-hero .eyebrow");
   if (homeEyebrow) homeEyebrow.innerHTML = `<span></span> ${day} · ${time}`;
 
@@ -462,21 +497,34 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#new-note").addEventListener("click", newVaultNote);
 
   async function loadProjects() {
+    const grid = $("#project-grid");
+    grid?.classList.add("fx-loading");
+    grid?.setAttribute("aria-busy", "true");
     try {
       const payload = await api("/api/projects");
       state.projects = payload.projects || [];
       $("#git-project-count").textContent = state.projects.filter((project) => project.git).length;
       $("#ready-project-count").textContent = state.projects.filter((project) => project.language).length;
       $("#project-count").textContent = state.projects.length;
-      renderProjectGrid();
+      setTimeout(() => {
+        renderProjectGrid();
+        grid?.classList.remove("fx-loading");
+        grid?.setAttribute("aria-busy", "false");
+      }, 420);
     } catch (error) {
+      grid?.classList.remove("fx-loading");
+      grid?.setAttribute("aria-busy", "false");
       toast(error.message, "warning-circle");
     }
   }
 
   function renderProjectGrid() {
-    $("#project-grid").innerHTML = state.projects.map((project) => `
-      <article class="project-card" data-project="${escapeHtml(project.path)}">
+    const grid = $("#project-grid");
+    const layout = $$("#project-layout button.active")[0]?.dataset.layout || "grid";
+    if (!grid) return;
+
+    const cardMarkup = (project, extraClass = "") => `
+      <article class="project-card ${extraClass}" data-project="${escapeHtml(project.path)}">
         <div class="project-card-head">
           <span class="project-code"><i class="ph ph-code"></i></span>
           ${project.git ? `<span class="git-status"><i></i>Git</span>` : ""}
@@ -488,13 +536,36 @@ document.addEventListener("DOMContentLoaded", () => {
           <button title="Abrir projeto"><i class="ph ph-arrow-square-out"></i></button>
         </div>
       </article>
-    `).join("");
+    `;
+
+    grid.className = `project-grid ${layout}`;
+    if (layout === "kanban") {
+      const columns = [
+        { title: "Planejado", icon: "circle", items: state.projects.filter((_, index) => index % 3 === 0) },
+        { title: "Em desenvolvimento", icon: "pulse", items: state.projects.filter((_, index) => index % 3 === 1) },
+        { title: "Ativo", icon: "check-circle", items: state.projects.filter((_, index) => index % 3 === 2) },
+      ];
+      grid.innerHTML = columns.map((column) => `
+        <section class="kanban-column">
+          <header class="kanban-column-header"><span><i></i>${column.title}</span><b>${column.items.length}</b></header>
+          ${column.items.map((project) => cardMarkup(project, "kanban-card")).join("")}
+        </section>
+      `).join("");
+    } else if (layout === "gallery") {
+      grid.innerHTML = state.projects.map((project) => cardMarkup(project, "gallery-card")).join("");
+    } else {
+      grid.innerHTML = state.projects.map((project) => cardMarkup(project)).join("");
+    }
+    $$(".project-card", grid).forEach((card, index) => {
+      card.classList.add("fx-enter-scale");
+      card.style.animationDelay = `${Math.min(index * 28, 280)}ms`;
+    });
   }
 
   $$(".segmented button").forEach((button) => button.addEventListener("click", () => {
     $$(".segmented button").forEach((item) => item.classList.remove("active"));
     button.classList.add("active");
-    $("#project-grid").classList.toggle("timeline", button.dataset.layout === "timeline");
+    renderProjectGrid();
   }));
   $("#open-terminal").addEventListener("click", () => toast("Terminal integrado disponível no Desktop", "terminal"));
 

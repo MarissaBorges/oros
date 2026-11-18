@@ -42,6 +42,7 @@
       </nav>
 
       <div class="rail-bottom">
+        <button class="rail-button" id="sidebar-collapse" title="Recolher barra lateral"><i class="ph ph-sidebar-simple"></i></button>
         <button class="rail-button" data-view="settings" title="Configurações"><i class="ph ph-gear"></i></button>
         <button class="user-avatar" title="Marissa Borges">MB</button>
       </div>
@@ -96,6 +97,11 @@
         <section id="view-home" class="view active">
           <div class="home-scroll">
             <div class="home-hero">
+              <div class="home-banner" aria-hidden="true">
+                <span class="banner-scan"></span>
+                <span class="banner-circuit circuit-a"></span>
+                <span class="banner-circuit circuit-b"></span>
+              </div>
               <div>
                 <p class="eyebrow"><span></span> Segunda-feira · 21:45</p>
                 <h1>Bom dia, <em>Marissa.</em></h1>
@@ -229,10 +235,20 @@
 
         <section id="view-projects" class="view">
           <div class="module-scroll">
+            <div class="project-banner">
+              <div class="project-banner-grid"></div>
+              <div class="project-banner-copy"><span>SISTEMA DE DESENVOLVIMENTO</span><strong id="project-banner-title">Workspace / Projetos</strong></div>
+              <div class="project-banner-orb"><i></i><i></i><i></i></div>
+            </div>
             <div class="module-header">
               <div><p class="eyebrow">ÁREA DE TRABALHO</p><h1>Projetos</h1></div>
               <div class="module-actions">
-                <div class="segmented" id="project-layout"><button class="active" data-layout="grid"><i class="ph ph-squares-four"></i></button><button data-layout="timeline"><i class="ph ph-list-dashes"></i></button></div>
+                <div class="segmented" id="project-layout">
+                  <button class="active" data-layout="grid" title="Grade"><i class="ph ph-squares-four"></i></button>
+                  <button data-layout="timeline" title="Lista"><i class="ph ph-list-dashes"></i></button>
+                  <button data-layout="kanban" title="Kanban"><i class="ph ph-columns"></i></button>
+                  <button data-layout="gallery" title="Galeria"><i class="ph ph-image-square"></i></button>
+                </div>
                 <button class="glass-button" id="open-terminal"><i class="ph ph-terminal"></i> Terminal</button>
               </div>
             </div>
