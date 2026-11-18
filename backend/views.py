@@ -2,14 +2,17 @@ import json
 import mimetypes
 import os
 import json
+import sqlite3
+import time
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from loaders.gitloader import download_repo
-from loaders.scraper import scraper_docs
+from .loaders.gitloader import download_repo
+from .loaders.scraper import scraper_docs
 
 from .rag import ask_huggingface, build_prompt, search_sources
 from .desktop import active_windows, capture_screen, find_window, focus_window, open_url
@@ -22,6 +25,7 @@ ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
 executor = ThreadPoolExecutor(max_workers=2)
 CONFIG_PATH = ROOT / "config" / "oros.json"
+CHAT_DB = ROOT / "data" / "chat-history.sqlite3"
 
 
 def _config():
@@ -30,6 +34,31 @@ def _config():
 
 def _vault():
     return Vault(_config()["vault"])
+
+
+def _chat_db():
+    CHAT_DB.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(CHAT_DB)
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS conversations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL
+        )
+    """)
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            conversation_id INTEGER NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            payload TEXT,
+            created_at REAL NOT NULL,
+            FOREIGN KEY(conversation_id) REFERENCES conversations(id)
+        )
+    """)
+    return connection
 
 
 def frontend(request):
@@ -163,6 +192,153 @@ def terminal_run(request):
     return JsonResponse(run_command(command, working_dir, timeout))
 
 
+@csrf_exempt
+def project_snapshot(request):
+    dev_root = Path("/home/borges/dev")
+    projects = []
+    for path in sorted(dev_root.iterdir(), key=lambda item: item.stat().st_mtime, reverse=True):
+        if not path.is_dir() or path.name.startswith("."):
+            continue
+        is_git = (path / ".git").exists()
+        language = ""
+        indicators = {
+            "Python": ("pyproject.toml", "requirements.txt", "manage.py"),
+            "JavaScript": ("package.json",),
+            "Django": ("manage.py",),
+            "Rust": ("Cargo.toml",),
+            "Go": ("go.mod",),
+        }
+        matches = [name for name, files in indicators.items() if any((path / file).exists() for file in files)]
+        language = matches[0] if matches else ""
+        try:
+            branch = subprocess.run(
+                ["git", "-C", str(path), "branch", "--show-current"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            ).stdout.strip() if is_git else ""
+        except (OSError, subprocess.TimeoutExpired):
+            branch = ""
+        projects.append({
+            "name": path.name,
+            "path": str(path),
+            "git": is_git,
+            "branch": branch,
+            "language": language,
+            "modified": path.stat().st_mtime,
+        })
+    return JsonResponse({"ok": True, "projects": projects[:60]})
+
+
+@csrf_exempt
+def chat_history(request):
+    connection = _chat_db()
+    try:
+        if request.method == "GET":
+            rows = connection.execute(
+                "SELECT id,title,created_at,updated_at FROM conversations ORDER BY updated_at DESC"
+            ).fetchall()
+            return JsonResponse({
+                "ok": True,
+                "conversations": [
+                    {"id": row[0], "title": row[1], "created_at": row[2], "updated_at": row[3]}
+                    for row in rows
+                ],
+            })
+        if request.method != "POST":
+            return JsonResponse({"error": "Use GET or POST."}, status=405)
+        payload = _json(request)
+        conversation_id = payload.get("conversation_id")
+        title = str(payload.get("title", "Nova conversa")).strip() or "Nova conversa"
+        now = time.time()
+        if conversation_id:
+            conversation_id = int(conversation_id)
+            connection.execute(
+                "UPDATE conversations SET updated_at=? WHERE id=?",
+                (now, conversation_id),
+            )
+        else:
+            cursor = connection.execute(
+                "INSERT INTO conversations(title,created_at,updated_at) VALUES(?,?,?)",
+                (title, now, now),
+            )
+            conversation_id = cursor.lastrowid
+        connection.commit()
+        return JsonResponse({"ok": True, "conversation_id": conversation_id})
+    finally:
+        connection.close()
+
+
+@csrf_exempt
+def conversation_detail(request, conversation_id):
+    connection = _chat_db()
+    try:
+        if request.method == "GET":
+            conversation = connection.execute(
+                "SELECT id,title,created_at,updated_at FROM conversations WHERE id=?",
+                (conversation_id,),
+            ).fetchone()
+            if not conversation:
+                return JsonResponse({"error": "Conversation not found."}, status=404)
+            messages = connection.execute(
+                "SELECT id,role,content,payload,created_at FROM messages "
+                "WHERE conversation_id=? ORDER BY id",
+                (conversation_id,),
+            ).fetchall()
+            return JsonResponse({
+                "ok": True,
+                "conversation": {
+                    "id": conversation[0],
+                    "title": conversation[1],
+                    "created_at": conversation[2],
+                    "updated_at": conversation[3],
+                },
+                "messages": [
+                    {
+                        "id": row[0],
+                        "role": row[1],
+                        "content": row[2],
+                        "payload": json.loads(row[3]) if row[3] else None,
+                        "created_at": row[4],
+                    }
+                    for row in messages
+                ],
+            })
+        if request.method != "POST":
+            return JsonResponse({"error": "Use GET or POST."}, status=405)
+        payload = _json(request)
+        role = str(payload.get("role", "")).strip()
+        content = str(payload.get("content", "")).strip()
+        if role not in {"user", "assistant", "system"} or not content:
+            return JsonResponse({"error": "Valid role and content are required."}, status=400)
+        now = time.time()
+        connection.execute(
+            "INSERT INTO messages(conversation_id,role,content,payload,created_at) "
+            "VALUES(?,?,?,?,?)",
+            (
+                conversation_id,
+                role,
+                content,
+                json.dumps(payload.get("payload"), ensure_ascii=False) if payload.get("payload") is not None else None,
+                now,
+            ),
+        )
+        connection.execute(
+            "UPDATE conversations SET updated_at=? WHERE id=?",
+            (now, conversation_id),
+        )
+        if role == "user":
+            title = content[:48].replace("\n", " ")
+            connection.execute(
+                "UPDATE conversations SET title=? WHERE id=? AND title='Nova conversa'",
+                (title, conversation_id),
+            )
+        connection.commit()
+        return JsonResponse({"ok": True})
+    finally:
+        connection.close()
+
+
 def _json(request):
     try:
         return json.loads(request.body or "{}")
@@ -191,7 +367,37 @@ def chat(request):
         answer = "Ainda não consigo consultar o modelo de IA. " + error
         steps[-1]["detail"] = "A recuperação funcionou, mas a chamada ao modelo não foi concluída."
     citations = [{"title": item["title"], "path": item["path"], "url": item.get("url") or None, "score": item["score"]} for item in sources]
-    return JsonResponse({"answer": answer, "steps": steps, "sources": citations, "model": os.getenv("HF_MODEL", "meta-llama/Llama-3.2-3B-Instruct"), "error": error})
+    result = {"answer": answer, "steps": steps, "sources": citations, "model": os.getenv("HF_MODEL", "meta-llama/Llama-3.2-3B-Instruct"), "error": error}
+    conversation_id = payload.get("conversation_id")
+    if conversation_id:
+        connection = _chat_db()
+        try:
+            now = time.time()
+            connection.execute(
+                "INSERT INTO messages(conversation_id,role,content,payload,created_at) "
+                "VALUES(?,?,?,?,?)",
+                (conversation_id, "user", question, None, now),
+            )
+            connection.execute(
+                "INSERT INTO messages(conversation_id,role,content,payload,created_at) "
+                "VALUES(?,?,?,?,?)",
+                (conversation_id, "assistant", answer, json.dumps(result, ensure_ascii=False), now + 0.001),
+            )
+            connection.execute(
+                "UPDATE conversations SET updated_at=? WHERE id=?",
+                (now, conversation_id),
+            )
+            connection.execute(
+                "UPDATE conversations SET title=? WHERE id=? AND title='Nova conversa'",
+                (question[:48].replace("\n", " "), conversation_id),
+            )
+            connection.commit()
+            result["conversation_id"] = int(conversation_id)
+        except sqlite3.Error:
+            pass
+        finally:
+            connection.close()
+    return JsonResponse(result)
 
 
 @csrf_exempt

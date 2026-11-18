@@ -1,325 +1,282 @@
 <!DOCTYPE html>
-<html lang="pt-BR" class="dark">
+<html lang="pt-BR" data-theme="midnight">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitHermes - Workspace</title>
-    
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Tailwind Config -->
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                    },
-                    colors: {
-                        background: '#09090b',
-                        surface: '#18181b',
-                        border: '#27272a',
-                        borderHover: '#3f3f46',
-                        primary: '#fafafa',
-                        secondary: '#a1a1aa',
-                        tertiary: '#71717a',
-                        accent: '#ffffff',
-                        gold: '#fbbf24',
-                    }
-                }
-            }
-        }
-    </script>
-    
-    <!-- GSAP for Animations -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    
-    <!-- Phosphor Icons -->
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-
-    <!-- Custom CSS and JS -->
-    <link href="css/style.css" rel="stylesheet">
-    <script src="js/app.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OROS Workspace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+  <link href="css/style.css" rel="stylesheet">
+  <script src="js/app.js" defer></script>
 </head>
-<body class="h-screen w-screen flex overflow-hidden selection:bg-white/20 selection:text-white">
+<body>
+  <div id="boot" class="boot" aria-hidden="true">
+    <div class="boot-mark"><span></span><span></span><span></span></div>
+    <div class="boot-copy">OROS</div>
+  </div>
 
-    <!-- Loader Background -->
-    <div id="loader-bg" class="fixed inset-0 z-[95] bg-background"></div>
+  <div class="app-shell">
+    <aside class="rail">
+      <button class="brand" data-action="home" aria-label="OROS home">
+        <span class="brand-glyph">O</span>
+      </button>
 
-    <!-- JARVIS Holographic Loader & Floating Button -->
-    <div id="loader-wrapper" class="fixed inset-0 z-[100] flex flex-col items-center justify-center pointer-events-none">
-        
-        <!-- Orb Container (Becomes floating button) -->
-        <div id="orb-container" class="relative z-10 w-full max-w-[900px] aspect-square flex items-center justify-center perspective-[1200px] pointer-events-auto cursor-pointer group" onclick="switchView('#view-chat')">
-            <!-- Intense core ambient glow -->
-            <div id="orb-glow" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 bg-gold rounded-full opacity-20 blur-[80px] z-0 transition-all duration-1000 group-hover:opacity-40 group-hover:scale-110"></div>
-            
-            <!-- Chaotic JARVIS Core (Canvas) -->
-            <canvas id="jarvis-canvas" class="absolute inset-0 w-full h-full mix-blend-screen"></canvas>
-        </div>
-        
-        <div id="loader-text" class="absolute bottom-16 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-20 pointer-events-none">
-            <span class="text-gold font-mono text-sm tracking-[0.3em] uppercase animate-pulse">Initializing System</span>
-            <div class="w-48 h-1 bg-surface rounded-full overflow-hidden">
-                <div class="h-full bg-gold w-full origin-left scale-x-0 animate-[fillBar_2s_ease-in-out_forwards]"></div>
-            </div>
-        </div>
-    </div>
-    
-    <style>
-        @keyframes fillBar {
-            0% { transform: scaleX(0); }
-            50% { transform: scaleX(0.7); }
-            100% { transform: scaleX(1); }
-        }
-    </style>
+      <nav class="rail-nav" aria-label="Principal">
+        <button class="rail-button active" data-view="home" title="Início"><i class="ph ph-house"></i></button>
+        <button class="rail-button" data-view="chat" title="Chat"><i class="ph ph-chat-circle-dots"></i></button>
+        <button class="rail-button" data-view="vault" title="Vault"><i class="ph ph-notebook"></i></button>
+        <button class="rail-button" data-view="projects" title="Projetos"><i class="ph ph-code-block"></i></button>
+        <button class="rail-button" data-view="desktop" title="Desktop"><i class="ph ph-monitor"></i></button>
+      </nav>
 
-    <!-- Toast Notification Container -->
-    <div id="toast-container" class="fixed bottom-6 right-6 z-[90] flex flex-col items-end"></div>
-
-    <!-- Sidebar -->
-    <aside class="w-64 border-r border-border bg-background flex flex-col pt-8 pb-6 px-4 z-10 relative shadow-[1px_0_15px_rgba(0,0,0,0.5)]">
-        <!-- Logo -->
-        <div class="flex items-center gap-3 px-2 mb-10">
-            <div class="w-6 h-6 rounded border border-border flex items-center justify-center">
-                <i class="ph ph-command text-gold text-sm font-bold"></i>
-            </div>
-            <span class="font-medium tracking-tight text-sm">GitHermes</span>
-        </div>
-
-        <!-- Navigation -->
-        <nav class="flex-1 flex flex-col gap-1">
-            <div class="px-2 mb-2">
-                <span class="text-[10px] font-medium text-tertiary uppercase tracking-wider">Workspace</span>
-            </div>
-            
-            <a href="#" data-target="#view-overview" class="flex items-center gap-3 px-2 py-1.5 rounded-md bg-surface text-primary text-sm font-medium transition-colors">
-                <i class="ph ph-squares-four text-lg"></i>
-                Overview
-            </a>
-            
-            <a href="#" data-target="#view-chat" class="flex items-center gap-3 px-2 py-1.5 rounded-md text-secondary hover:text-primary hover:bg-surface/50 text-sm font-medium transition-colors">
-                <i class="ph ph-chat-teardrop-text text-lg"></i>
-                Hermes Chat
-            </a>
-
-            <a href="#" data-target="#view-repos" class="flex items-center gap-3 px-2 py-1.5 rounded-md text-secondary hover:text-primary hover:bg-surface/50 text-sm font-medium transition-colors">
-                <i class="ph ph-git-branch text-lg"></i>
-                Repositories
-            </a>
-            
-            <a href="#" data-target="#view-docs" class="flex items-center gap-3 px-2 py-1.5 rounded-md text-secondary hover:text-primary hover:bg-surface/50 text-sm font-medium transition-colors">
-                <i class="ph ph-books text-lg"></i>
-                Documentation
-            </a>
-        </nav>
-
-        <div class="mt-auto pt-4 border-t border-border flex items-center gap-3 px-2 cursor-pointer hover:bg-surface/50 p-2 rounded transition-colors" onclick="showToast('Settings not available', 'error')">
-            <div class="w-7 h-7 rounded-full bg-surface border border-border flex items-center justify-center">
-                <i class="ph ph-gear text-secondary text-sm"></i>
-            </div>
-            <div class="flex flex-col">
-                <span class="text-sm font-medium text-primary leading-tight">Preferences</span>
-            </div>
-        </div>
+      <div class="rail-bottom">
+        <button class="rail-button" data-view="settings" title="Configurações"><i class="ph ph-gear"></i></button>
+        <button class="user-avatar" title="Marissa Borges">MB</button>
+      </div>
     </aside>
 
-    <!-- Main Content -->
-    <main class="flex-1 flex flex-col min-w-0 bg-background relative z-0">
-        
-        <!-- Header -->
-        <header class="h-14 border-b border-border flex items-center justify-between px-8 shrink-0 relative z-20 bg-background">
-            <div class="flex items-center gap-2 text-sm text-secondary" id="breadcrumb">
-                <span>Workspace</span>
-                <i class="ph ph-caret-right text-tertiary text-xs"></i>
-                <span class="text-primary font-medium">Overview</span>
-            </div>
-            
-            <div class="flex items-center gap-4 text-xs font-mono text-tertiary">
-                <div class="flex items-center gap-2" onclick="showToast('Engine diagnostic normal', 'success')">
-                    <div class="w-1.5 h-1.5 rounded-full bg-gold shadow-[0_0_8px_rgba(251,191,36,0.6)] animate-pulse cursor-pointer"></div>
-                    Engine Ready
-                </div>
-            </div>
-        </header>
+    <aside class="context-panel">
+      <div class="context-head">
+        <button class="workspace-switcher">
+          <span class="workspace-dot"></span>
+          <span>
+            <strong>OROS</strong>
+            <small>Personal workspace</small>
+          </span>
+          <i class="ph ph-caret-down"></i>
+        </button>
+        <button class="icon-button" id="quick-search" title="Busca rápida"><i class="ph ph-magnifying-glass"></i></button>
+      </div>
 
-        <!-- View Container (Relative for absolute children positioning) -->
-        <div class="flex-1 overflow-hidden relative">
-            
-            <!-- VIEW: OVERVIEW (Default) -->
-            <div id="view-overview" class="absolute inset-0 overflow-y-auto px-8 py-8 flex flex-col gap-10 hidden">
-                <section class="max-w-5xl w-full mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <!-- Status Card -->
-                    <div class="col-span-1 lg:col-span-2 p-6 rounded-xl border border-border bg-surface/20 flex items-center justify-between">
-                        <div>
-                            <h1 class="text-2xl font-medium text-primary mb-1">Welcome back.</h1>
-                            <p class="text-sm text-secondary" id="workspace-status">Carregando fontes e repositórios indexados...</p>
-                        </div>
-                        <button class="px-4 py-2 bg-primary text-background text-sm font-medium rounded-lg hover:bg-gold transition-colors" onclick="switchView('#view-chat')">
-                            Open Chat
-                        </button>
-                    </div>
+      <nav class="context-nav">
+        <button data-view="home"><i class="ph ph-sparkle"></i><span>Começo</span><kbd>⌘ H</kbd></button>
+        <button data-view="chat"><i class="ph ph-chat-centered-text"></i><span>Conversas</span><span class="nav-count" id="chat-count">0</span></button>
+        <button data-view="vault"><i class="ph ph-files"></i><span>Meu vault</span><kbd>⌘ V</kbd></button>
+        <button data-view="projects"><i class="ph ph-terminal-window"></i><span>Projetos</span></button>
+        <button data-view="desktop"><i class="ph ph-desktop"></i><span>Desktop</span></button>
+      </nav>
 
-                    <!-- Quick Repos -->
-                    <div class="flex flex-col gap-4">
-                        <div class="flex items-center justify-between">
-                            <h2 class="text-sm font-medium text-primary">Active Repositories</h2>
-                            <button class="text-xs text-tertiary hover:text-primary transition-colors" onclick="switchView('#view-repos')">View All</button>
-                        </div>
-                        <div class="flex flex-col gap-2">
-                            <!-- Repo Item -->
-                            <div class="group p-4 rounded-lg border border-border hover:border-gold/30 bg-surface/30 hover:bg-surface transition-all flex flex-col gap-3 cursor-pointer">
-                                <div class="flex items-start justify-between">
-                                    <div class="flex items-center gap-2">
-                                        <i class="ph ph-folder-simple text-tertiary group-hover:text-gold transition-colors"></i>
-                                        <span class="text-sm font-medium text-primary">my-nextjs-app</span>
-                                    </div>
-                                    <span class="text-[10px] font-mono text-tertiary">Indexed</span>
-                                </div>
-                                <div class="flex items-center gap-4 text-[11px] font-mono text-tertiary mt-1">
-                                    <span class="flex items-center gap-1"><i class="ph ph-clock"></i> 2h ago</span>
-                                    <span class="flex items-center gap-1"><i class="ph ph-file-code"></i> 142 files</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Quick Docs -->
-                    <div class="flex flex-col gap-4">
-                        <div class="flex items-center justify-between">
-                            <h2 class="text-sm font-medium text-primary">Knowledge Base</h2>
-                        </div>
-                        <div class="flex flex-col gap-2">
-                            <!-- Doc Item -->
-                            <div class="group flex items-center justify-between p-3 rounded-lg border border-transparent hover:border-border hover:bg-surface transition-all cursor-pointer">
-                                <div class="flex flex-col gap-1">
-                                    <span class="text-sm font-medium text-primary">React 18 Architecture</span>
-                                    <span class="text-xs text-tertiary">Source: react.dev</span>
-                                </div>
-                                <i class="ph ph-arrow-up-right text-tertiary opacity-0 group-hover:opacity-100 transition-opacity"></i>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            </div>
-
-            <!-- VIEW: CHAT INTERFACE -->
-            <div id="view-chat" class="absolute inset-0 flex flex-col hidden bg-surface/10">
-                <!-- Chat Messages Area -->
-                <div class="flex-1 overflow-y-auto px-8 py-8 flex flex-col gap-6 max-w-4xl w-full mx-auto" id="chat-messages">
-                    <!-- System Welcome -->
-                    <div class="flex gap-4 items-start">
-                        <div class="w-8 h-8 rounded-full bg-surface border border-gold/30 flex items-center justify-center shrink-0 shadow-[inset_0_0_8px_rgba(251,191,36,0.1)]">
-                            <i class="ph ph-cpu text-gold text-sm"></i>
-                        </div>
-                        <div class="flex flex-col gap-1 w-full mt-1">
-                            <span class="text-xs font-mono text-gold mb-1">GitHermes System</span>
-                            <div class="text-primary text-sm leading-relaxed p-4 bg-surface/50 border border-border rounded-2xl rounded-tl-sm">
-                                Sistema online. Posso consultar a documentação coletada pelo scraper e o código baixado pelo GitLoader. Faça uma pergunta para começar.
-                            </div>
-                        </div>
-                    </div>
-
-                </div>
-
-                <!-- Chat Input Area -->
-                <div class="p-6 border-t border-border bg-background">
-                    <div class="max-w-4xl w-full mx-auto relative group">
-                        <div class="absolute -inset-0.5 bg-gradient-to-r from-borderHover to-border rounded-xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
-                        <div class="relative bg-background border border-border focus-within:border-gold/50 focus-within:shadow-[0_0_15px_rgba(251,191,36,0.1)] rounded-xl p-2 transition-all duration-300 flex items-end">
-                            <button class="p-2 text-tertiary hover:text-primary transition-colors rounded-lg mb-1" onclick="showToast('Context attached', 'success')">
-                                <i class="ph ph-paperclip text-lg"></i>
-                            </button>
-                            <textarea id="chat-input"
-                                class="w-full bg-transparent text-sm py-2 px-2 text-primary placeholder:text-tertiary font-sans resize-none min-h-[44px] max-h-[200px]" 
-                                rows="1"
-                                placeholder="Pergunte sobre sua documentação ou código..."
-                            ></textarea>
-                            <button id="send-message" class="p-2 bg-primary text-background hover:bg-gold transition-colors rounded-lg mb-1 ml-2">
-                                <i class="ph ph-paper-plane-right text-lg"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- VIEW: REPOSITORIES -->
-            <div id="view-repos" class="absolute inset-0 overflow-y-auto px-8 py-8 flex flex-col gap-6 hidden">
-                <div class="max-w-5xl w-full mx-auto flex justify-between items-center">
-                    <h1 class="text-2xl font-medium text-primary">Repositories</h1>
-                    <button class="px-4 py-2 border border-border text-primary text-sm font-medium rounded-lg hover:bg-surface transition-colors" onclick="addRepository()">
-                        <i class="ph ph-plus mr-1"></i> Add Repository
-                    </button>
-                </div>
-                
-                <div class="max-w-5xl w-full mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Detailed Repo Card -->
-                    <div class="p-5 rounded-xl border border-border bg-surface/30 hover:border-gold/30 transition-all flex flex-col gap-4">
-                        <div class="flex justify-between items-start">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-lg bg-surface border border-border flex items-center justify-center">
-                                    <i class="ph ph-git-branch text-primary text-xl"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-base font-medium text-primary leading-tight">Nenhum repositório indexado</h3>
-                                    <span class="text-xs text-secondary">Adicione um repositório público do GitHub</span>
-                                </div>
-                            </div>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-mono border border-border bg-surface text-secondary">Indexed</span>
-                        </div>
-                        <div class="flex gap-4 mt-2 border-t border-border/50 pt-4">
-                            <div class="flex flex-col">
-                                <span class="text-[10px] uppercase tracking-wider text-tertiary">Last Sync</span>
-                                <span class="text-sm text-primary font-mono mt-1">2h ago</span>
-                            </div>
-                            <div class="flex flex-col">
-                                <span class="text-[10px] uppercase tracking-wider text-tertiary">Files</span>
-                                <span class="text-sm text-primary font-mono mt-1">142</span>
-                            </div>
-                            <div class="flex flex-col">
-                                <span class="text-[10px] uppercase tracking-wider text-tertiary">Language</span>
-                                <span class="text-sm text-primary font-mono mt-1">TypeScript</span>
-                            </div>
-                        </div>
-                        <div class="flex gap-2 mt-2">
-                            <button class="flex-1 py-1.5 bg-surface border border-border rounded text-xs text-primary hover:bg-border transition-colors">Analyze</button>
-                            <button class="flex-1 py-1.5 bg-surface border border-border rounded text-xs text-primary hover:bg-border transition-colors">Sync Now</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- VIEW: DOCUMENTATION INGESTION -->
-            <div id="view-docs" class="absolute inset-0 overflow-y-auto px-8 py-8 flex flex-col gap-6 hidden">
-                <div class="max-w-3xl w-full mx-auto">
-                    <h1 class="text-2xl font-medium text-primary">Documentation</h1>
-                    <p class="text-sm text-secondary mt-2">Colete uma documentação para ampliar o contexto do Hermes.</p>
-                    <form id="docs-form" class="mt-8 p-5 rounded-xl border border-border bg-surface/30 flex flex-col gap-4">
-                        <label class="text-xs text-secondary">URL da documentação
-                            <input id="docs-url" required type="url" placeholder="https://docs.python.org/3/" class="mt-2 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-primary">
-                        </label>
-                        <div class="grid grid-cols-2 gap-4">
-                            <label class="text-xs text-secondary">Coleção
-                                <input id="docs-collection" value="docs" class="mt-2 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-primary">
-                            </label>
-                            <label class="text-xs text-secondary">Profundidade
-                                <input id="docs-depth" value="10" type="number" min="1" max="200" class="mt-2 w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-primary">
-                            </label>
-                        </div>
-                        <button class="self-start px-4 py-2 bg-primary text-background text-sm font-medium rounded-lg hover:bg-gold transition-colors" type="submit">Iniciar coleta</button>
-                    </form>
-                </div>
-            </div>
-
+      <div class="context-section">
+        <div class="section-label">
+          <span>Recentes</span>
+          <button id="new-note" title="Nova nota"><i class="ph ph-plus"></i></button>
         </div>
+        <div id="recent-notes" class="recent-list"></div>
+      </div>
+
+      <div class="context-foot">
+        <div class="status-line"><span class="status-pulse"></span><span>Local runtime</span></div>
+        <button class="privacy-button"><i class="ph ph-shield-check"></i><span>Privado</span></button>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div class="breadcrumbs" id="breadcrumbs"><span>Workspace</span><i class="ph ph-caret-right"></i><strong>Começo</strong></div>
+        <div class="top-actions">
+          <button class="top-button" id="capture-button"><i class="ph ph-camera"></i><span>Ver tela</span></button>
+          <button class="top-button" id="focus-oros"><i class="ph ph-crosshair"></i><span>Focar</span></button>
+          <button class="icon-button" id="theme-button" title="Alternar tema"><i class="ph ph-circle-half"></i></button>
+        </div>
+      </header>
+
+      <div class="view-stack">
+        <section id="view-home" class="view active">
+          <div class="home-scroll">
+            <div class="home-hero">
+              <div>
+                <p class="eyebrow"><span></span> Segunda-feira · 21:45</p>
+                <h1>Bom dia, <em>Marissa.</em></h1>
+              </div>
+              <div class="hero-actions">
+                <button class="glass-button" data-view="chat"><i class="ph ph-sparkle"></i> Conversar com OROS</button>
+              </div>
+            </div>
+
+            <div class="command-card">
+              <div class="command-spark"><i class="ph ph-sparkle"></i></div>
+              <input id="home-command" autocomplete="off" placeholder="Pergunte, planeje ou peça uma ação...">
+              <button id="home-command-send" title="Enviar"><i class="ph ph-arrow-up"></i></button>
+            </div>
+
+            <div class="home-grid">
+              <article class="panel continue-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="panel-kicker">ATIVIDADE</span>
+                    <h2>Continue de onde parou</h2>
+                  </div>
+                  <button class="icon-button"><i class="ph ph-dots-three"></i></button>
+                </div>
+                <div id="continue-list" class="continue-list"></div>
+              </article>
+
+              <article class="panel pulse-panel">
+                <div class="panel-head">
+                  <div>
+                    <span class="panel-kicker">PULSO</span>
+                    <h2>Seu ambiente</h2>
+                  </div>
+                  <span class="live-pill"><i></i> LIVE</span>
+                </div>
+                <div class="pulse-grid">
+                  <div><i class="ph ph-code"></i><strong id="project-count">0</strong><span>projetos</span></div>
+                  <div><i class="ph ph-notebook"></i><strong id="note-count">0</strong><span>notas</span></div>
+                  <div><i class="ph ph-monitor"></i><strong id="window-count">0</strong><span>janelas</span></div>
+                </div>
+              </article>
+
+              <article class="panel project-strip">
+                <div class="panel-head">
+                  <div>
+                    <span class="panel-kicker">DESENVOLVIMENTO</span>
+                    <h2>Projetos recentes</h2>
+                  </div>
+                  <button class="text-button" data-view="projects">Ver todos <i class="ph ph-arrow-right"></i></button>
+                </div>
+                <div id="recent-projects" class="project-row"></div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-chat" class="view">
+          <div class="chat-layout">
+            <aside class="chat-sidebar">
+              <div class="chat-sidebar-head">
+                <button class="new-chat" id="new-chat"><i class="ph ph-plus"></i><span>Nova conversa</span></button>
+              </div>
+              <div class="chat-search"><i class="ph ph-magnifying-glass"></i><input id="conversation-search" placeholder="Buscar conversas"></div>
+              <div id="conversation-list" class="conversation-list"></div>
+            </aside>
+
+            <div class="chat-main">
+              <div class="chat-top">
+                <div>
+                  <span class="presence"><i></i> OROS conectado</span>
+                  <h2 id="chat-title">Nova conversa</h2>
+                </div>
+                <button class="icon-button" id="chat-options"><i class="ph ph-dots-three"></i></button>
+              </div>
+              <div id="chat-messages" class="chat-messages">
+                <div class="welcome-state">
+                  <div class="oros-orb"><span></span></div>
+                  <h2>Como posso ajudar?</h2>
+                  <p>Posso navegar, escrever no vault, analisar projetos e controlar o ambiente.</p>
+                  <div class="suggestions">
+                    <button data-prompt="Resuma os projetos que estou desenvolvendo e sugira prioridades">Resumir meus projetos</button>
+                    <button data-prompt="Analise minha tela atual e diga o que você vê">Analisar minha tela</button>
+                    <button data-prompt="Crie uma nota de planejamento na pasta 01 Projetos">Criar plano no vault</button>
+                  </div>
+                </div>
+              </div>
+              <div class="composer-wrap">
+                <div class="composer">
+                  <button class="composer-tool" id="attach-screen" title="Anexar captura"><i class="ph ph-monitor-arrow-up"></i></button>
+                  <textarea id="chat-input" rows="1" placeholder="Pergunte ou dê uma instrução..."></textarea>
+                  <button class="send-button" id="send-message" title="Enviar"><i class="ph ph-arrow-up"></i></button>
+                </div>
+                <div class="composer-meta"><span><i class="ph ph-shield-check"></i> Ações sensíveis requerem confirmação</span><span id="chat-status">OROS 1.0</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-vault" class="view">
+          <div class="vault-layout">
+            <aside class="vault-sidebar">
+              <div class="vault-sidebar-head">
+                <button id="new-vault-note" class="new-chat"><i class="ph ph-plus"></i><span>Nova nota</span></button>
+              </div>
+              <div class="vault-search"><i class="ph ph-magnifying-glass"></i><input id="vault-search" placeholder="Buscar no vault"></div>
+              <div id="vault-tree" class="vault-tree"></div>
+            </aside>
+            <div class="note-workspace">
+              <div class="note-toolbar">
+                <div class="note-path" id="note-path">Nenhuma nota selecionada</div>
+                <div class="editor-actions">
+                  <button class="icon-button" id="preview-toggle" title="Alternar preview"><i class="ph ph-columns"></i></button>
+                  <button class="icon-button" id="save-note" title="Salvar"><i class="ph ph-floppy-disk"></i></button>
+                  <button class="icon-button" id="delete-note" title="Mover para lixeira"><i class="ph ph-trash"></i></button>
+                </div>
+              </div>
+              <div class="editor-layout">
+                <textarea id="note-editor" placeholder="# Nova ideia&#10;&#10;Comece a escrever..."></textarea>
+                <article id="note-preview" class="markdown-preview"></article>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-projects" class="view">
+          <div class="module-scroll">
+            <div class="module-header">
+              <div><p class="eyebrow">ÁREA DE TRABALHO</p><h1>Projetos</h1></div>
+              <div class="module-actions">
+                <div class="segmented" id="project-layout"><button class="active" data-layout="grid"><i class="ph ph-squares-four"></i></button><button data-layout="timeline"><i class="ph ph-list-dashes"></i></button></div>
+                <button class="glass-button" id="open-terminal"><i class="ph ph-terminal"></i> Terminal</button>
+              </div>
+            </div>
+            <div class="project-stats">
+              <div><span>Projetos Git</span><strong id="git-project-count">0</strong></div>
+              <div><span>Prontos para desenvolvimento</span><strong id="ready-project-count">0</strong></div>
+              <div><span>Workspace</span><strong>/dev</strong></div>
+            </div>
+            <div id="project-grid" class="project-grid"></div>
+          </div>
+        </section>
+
+        <section id="view-desktop" class="view">
+          <div class="module-scroll">
+            <div class="module-header">
+              <div><p class="eyebrow">AMBIENTE LOCAL</p><h1>Desktop</h1></div>
+              <button class="glass-button" id="desktop-refresh"><i class="ph ph-arrows-clockwise"></i> Atualizar</button>
+            </div>
+            <div class="desktop-grid">
+              <article class="panel screen-panel">
+                <div class="panel-head"><div><span class="panel-kicker">VISÃO</span><h2>Tela atual</h2></div><button class="icon-button" id="desktop-capture"><i class="ph ph-camera"></i></button></div>
+                <div class="screen-frame" id="screen-frame"><div class="screen-empty"><i class="ph ph-monitor"></i><span>Capturar tela</span></div></div>
+              </article>
+              <article class="panel window-panel">
+                <div class="panel-head"><div><span class="panel-kicker">JANELAS</span><h2>Hyprland</h2></div><span class="live-pill"><i></i> LIVE</span></div>
+                <div id="window-list" class="window-list"></div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section id="view-settings" class="view">
+          <div class="module-scroll settings-scroll">
+            <div class="module-header"><div><p class="eyebrow">PREFERÊNCIAS</p><h1>Personalização</h1></div></div>
+            <div class="settings-grid">
+              <article class="panel theme-panel">
+                <div class="panel-head"><div><span class="panel-kicker">APARÊNCIA</span><h2>Temas</h2></div></div>
+                <div class="theme-options">
+                  <button data-theme="midnight" class="theme-card active"><span class="theme-preview midnight-preview"></span><strong>Midnight</strong></button>
+                  <button data-theme="aurora" class="theme-card"><span class="theme-preview aurora-preview"></span><strong>Aurora</strong></button>
+                  <button data-theme="paper" class="theme-card"><span class="theme-preview paper-preview"></span><strong>Paper</strong></button>
+                  <button data-theme="ember" class="theme-card"><span class="theme-preview ember-preview"></span><strong>Ember</strong></button>
+                </div>
+              </article>
+              <article class="panel">
+                <div class="panel-head"><div><span class="panel-kicker">INTEGRAÇÕES</span><h2>Conexões</h2></div></div>
+                <div class="integration-list">
+                  <button><span class="integration-icon obsidian"><i class="ph ph-diamond"></i></span><span><strong>Obsidian</strong><small>Vault local</small></span><b>Conectado</b></button>
+                  <button><span class="integration-icon google"><i class="ph ph-google-logo"></i></span><span><strong>Google</strong><small>Gmail, Agenda e Drive</small></span><b>Configurar</b></button>
+                  <button><span class="integration-icon github"><i class="ph ph-github-logo"></i></span><span><strong>GitHub</strong><small>Repositórios e PRs</small></span><b>Conectado</b></button>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+      </div>
     </main>
+  </div>
+
+  <div id="toast-region" class="toast-region"></div>
 </body>
 </html>

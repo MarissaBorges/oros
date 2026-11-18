@@ -1,598 +1,451 @@
 document.addEventListener("DOMContentLoaded", () => {
-  // 1. Loader Animation (JARVIS Vision Core - Volumetric Plasma)
-  const initLoader = () => {
-    const canvas = document.getElementById("jarvis-canvas");
-    if (!canvas) return;
-
-    canvas.width = 1200;
-    canvas.height = 1200;
-    const ctx = canvas.getContext("2d");
-
-    const width = canvas.width;
-    const height = canvas.height;
-    const centerX = width / 2;
-    const centerY = height / 2;
-    const fov = 1000;
-    const cameraZ = 700;
-    let time = 0;
-
-    // Helper for 3D Projection
-    const project = (x, y, z, rotX, rotY, rotZ) => {
-      let x1 = x * Math.cos(rotZ) - y * Math.sin(rotZ);
-      let y1 = y * Math.cos(rotZ) + x * Math.sin(rotZ);
-      let z1 = z;
-
-      let x2 = x1 * Math.cos(rotY) - z1 * Math.sin(rotY);
-      let z2 = z1 * Math.cos(rotY) + x1 * Math.sin(rotY);
-      let y2 = y1;
-
-      let y3 = y2 * Math.cos(rotX) - z2 * Math.sin(rotX);
-      let z3 = z2 * Math.cos(rotX) + y2 * Math.sin(rotX);
-      let x3 = x2;
-
-      const scale = fov / (fov + z3 + cameraZ);
-      return {
-        x: x3 * scale + centerX,
-        y: y3 * scale + centerY,
-        z: z3,
-        s: scale,
-      };
-    };
-
-    // --- DATA STRUCTURES ---
-
-    // 0. Topographic Wavy Mesh (A malha de ondas)
-    const meshRows = 35;
-    const meshCols = 45;
-    const meshPoints = [];
-    for (let i = 0; i <= meshRows; i++) {
-      const lat = Math.PI * (i / meshRows);
-      for (let j = 0; j <= meshCols; j++) {
-        const lon = 2 * Math.PI * (j / meshCols);
-        meshPoints.push({ lat, lon, i, j });
-      }
-    }
-
-    // 1. Neural Branches (radiating from core to surface)
-    const branches = [];
-    for (let i = 0; i < 150; i++) {
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(Math.random() * 2 - 1);
-      branches.push({
-        tx: Math.sin(phi) * Math.cos(theta),
-        ty: Math.sin(phi) * Math.sin(theta),
-        tz: Math.cos(phi),
-        offset: Math.random() * 100,
-        thickness: 0.15, // Extremely thin lines
-        length: Math.random() * 250 + 150,
-      });
-    }
-
-    // 2. Surface Arcs (Thick fragmented plasma rings)
-    const arcs = [];
-    for (let i = 0; i < 50; i++) {
-      arcs.push({
-        radius: 350 + (Math.random() - 0.5) * 60,
-        lat: (Math.random() - 0.5) * Math.PI, // Fixed latitude for this arc
-        tiltY: Math.random() * Math.PI, // Random 3D tilt
-        tiltZ: Math.random() * Math.PI, // Random 3D tilt
-        angle: Math.random() * Math.PI * 2,
-        length: Math.random() * Math.PI * 1.2 + 0.2, // arc length
-        thickness:
-          Math.random() > 0.85
-            ? Math.random() * 2 + 1
-            : Math.random() * 0.6 + 0.3, // slightly thinner
-        speed: (Math.random() - 0.5) * 0.04,
-        alpha: Math.random() * 0.7 + 0.2,
-      });
-    }
-
-    // 3. Particles (Floating glowing dust)
-    const particles = [];
-    for (let i = 0; i < 200; i++) {
-      particles.push({
-        theta: Math.random() * Math.PI * 2,
-        phi: Math.acos(Math.random() * 2 - 1),
-        r: 200 + Math.random() * 200,
-        size: Math.random() * 2 + 0.5,
-        speed: (Math.random() - 0.5) * 0.03,
-      });
-    }
-
-    window.meshTickerFn = () => {
-      // Clear frame
-      ctx.globalCompositeOperation = "source-over";
-      ctx.clearRect(0, 0, width, height);
-
-      // Additive blending for true holographic/plasma glow
-      ctx.globalCompositeOperation = "lighter";
-
-      const rotX = time * 0.4;
-      const rotY = time * 0.6;
-      const rotZ = time * 0.2;
-
-      // --- 0. Draw Wavy Topographic Mesh (A Malha Original) ---
-      const meshRadius = 380;
-      const projectedMesh = [];
-
-      for (let p of meshPoints) {
-        const wave1 =
-          Math.sin(p.lat * 4 + time) * Math.cos(p.lon * 3 + time * 1.5) * 45;
-        const wave2 =
-          Math.sin(p.lat * 2 - time * 0.8) * Math.cos(p.lon * 5 - time) * 25;
-        const r = meshRadius + wave1 + wave2;
-
-        const stretchX = 1.1;
-        const stretchY = 0.7;
-
-        const x = r * Math.sin(p.lat) * Math.cos(p.lon) * stretchX;
-        const y = r * Math.cos(p.lat) * stretchY;
-        const z = r * Math.sin(p.lat) * Math.sin(p.lon);
-
-        // Add extra mesh tilt
-        const proj = project(x, y, z, rotX + Math.PI / 4, rotY, rotZ);
-        projectedMesh.push(proj);
-      }
-
-      for (let i = 0; i <= meshRows; i++) {
-        for (let j = 0; j <= meshCols; j++) {
-          const idx = i * (meshCols + 1) + j;
-          const p = projectedMesh[idx];
-          if (!p) continue;
-
-          const maxZ = meshRadius + 100;
-          const minZ = -maxZ;
-          let normalizedZ = (p.z - minZ) / (maxZ - minZ);
-          normalizedZ = Math.max(0, Math.min(1, normalizedZ));
-
-          // Lower opacity so it blends gracefully with the plasma
-          const alpha = Math.pow(1 - normalizedZ, 2.5) * 0.4;
-          if (alpha < 0.02) continue;
-
-          ctx.beginPath();
-          ctx.strokeStyle = `rgba(251, 191, 36, ${alpha})`;
-          ctx.lineWidth = 1;
-
-          if (j < meshCols) {
-            const pRight = projectedMesh[idx + 1];
-            if (pRight) {
-              ctx.moveTo(p.x, p.y);
-              ctx.lineTo(pRight.x, pRight.y);
-            }
-          }
-
-          if (i < meshRows) {
-            const pDown = projectedMesh[idx + (meshCols + 1)];
-            if (pDown) {
-              ctx.moveTo(p.x, p.y);
-              ctx.lineTo(pDown.x, pDown.y);
-            }
-          }
-          ctx.stroke();
-        }
-      }
-
-      // --- 0.5. Draw Equatorial Audio Waves (Voice visualizer) ---
-      // These waves are fixed to the mesh's equatorial plane and rotate with it
-      const numAudioRings = 4;
-      const audioBaseRadius = 450;
-      // Colors changed to Yellow/Gold variants
-      const ringColors = [
-        [251, 191, 36], // Gold
-        [255, 220, 50], // Light Yellow
-        [255, 180, 0], // Darker Gold
-        [255, 240, 100], // Bright Yellow
-      ];
-
-      for (let rIdx = 0; rIdx < numAudioRings; rIdx++) {
-        ctx.beginPath();
-        let first = true;
-
-        // Phase shift based on time for animation
-        const phase = time * (4 + rIdx * 0.5) + rIdx * (Math.PI / 2);
-
-        for (let lon = 0; lon <= Math.PI * 2 + 0.1; lon += 0.05) {
-          // Sine wave harmonics to simulate voice waveform
-          let waveHeight =
-            Math.sin(lon * (3 + rIdx) + phase) * 45 +
-            Math.cos(lon * (7 - rIdx) - time * 6) * 15;
-
-          // Modulation to make some parts of the wave taller
-          const intensity = (Math.sin(lon * 2 + time * 4) + 1) * 0.5;
-          waveHeight *= 0.5 + intensity;
-
-          const stretchX = 1.1;
-          const x = audioBaseRadius * Math.cos(lon) * stretchX;
-          const z = audioBaseRadius * Math.sin(lon);
-          const y = waveHeight;
-
-          // Project with exact same rotation as the mesh
-          const proj = project(x, y, z, rotX + Math.PI / 4, rotY, rotZ);
-
-          if (first) {
-            ctx.moveTo(proj.x, proj.y);
-            first = false;
-          } else {
-            ctx.lineTo(proj.x, proj.y);
-          }
-        }
-
-        const alpha = 0.6 + rIdx * 0.1;
-        const color = ringColors[rIdx % ringColors.length];
-        ctx.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha})`;
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-      }
-
-      // --- 1. Draw Volumetric Core ---
-      const coreProj = project(0, 0, 0, rotX, rotY, rotZ);
-      const coreRadius = 180 * coreProj.s; // Scale with perspective
-
-      // Dynamic core pulsing
-      const pulse = Math.sin(time * 5) * 10;
-
-      const grad = ctx.createRadialGradient(
-        coreProj.x,
-        coreProj.y,
-        0,
-        coreProj.x,
-        coreProj.y,
-        coreRadius + pulse,
-      );
-      grad.addColorStop(0, "rgba(255, 255, 255, 1)"); // White hot center
-      grad.addColorStop(0.2, "rgba(255, 220, 50, 0.9)"); // Bright yellow
-      grad.addColorStop(0.5, "rgba(255, 100, 0, 0.5)"); // Deep orange
-      grad.addColorStop(1, "rgba(255, 50, 0, 0)"); // Fade to invisible
-
-      ctx.beginPath();
-      ctx.arc(coreProj.x, coreProj.y, coreRadius + pulse, 0, Math.PI * 2);
-      ctx.fillStyle = grad;
-      ctx.fill();
-
-      // --- 2. Draw Neural Branches (Imperfect / Jagged / Thin rays) ---
-      for (const b of branches) {
-        ctx.beginPath();
-
-        const noise = Math.sin(time * 6 + b.offset) * 20;
-        const rEnd = b.length + noise;
-
-        const startX = b.tx * 50;
-        const startY = b.ty * 50;
-        const startZ = b.tz * 50;
-
-        const endX = b.tx * rEnd;
-        const endY = b.ty * rEnd;
-        const endZ = b.tz * rEnd;
-
-        let pStart = project(startX, startY, startZ, rotX, rotY, rotZ);
-        ctx.moveTo(pStart.x, pStart.y);
-
-        const steps = 8;
-        for (let j = 1; j <= steps; j++) {
-          const t = j / steps;
-          let nx = startX + (endX - startX) * t;
-          let ny = startY + (endY - startY) * t;
-          let nz = startZ + (endZ - startZ) * t;
-
-          // Add jagged noise for imperfection
-          if (j < steps) {
-            const jitter = 30; // amount of zig-zag
-            nx += (Math.random() - 0.5) * jitter;
-            ny += (Math.random() - 0.5) * jitter;
-            nz += (Math.random() - 0.5) * jitter;
-          }
-
-          const pNext = project(nx, ny, nz, rotX, rotY, rotZ);
-          ctx.lineTo(pNext.x, pNext.y);
-        }
-
-        ctx.strokeStyle = `rgba(255, 140, 0, 0.6)`;
-        ctx.lineWidth = b.thickness * pStart.s;
-        ctx.lineJoin = "miter";
-        ctx.stroke();
-      }
-
-      // --- 3. Draw Fragmented Surface Arcs (Liquid / Imperfect structures) ---
-      for (const arc of arcs) {
-        ctx.beginPath();
-        arc.angle += arc.speed;
-
-        let first = true;
-        for (let lon = arc.angle; lon <= arc.angle + arc.length; lon += 0.08) {
-          // Base coordinates using fixed latitude
-          let bx = arc.radius * Math.sin(arc.lat) * Math.cos(lon);
-          let by = arc.radius * Math.cos(arc.lat);
-          let bz = arc.radius * Math.sin(arc.lat) * Math.sin(lon);
-
-          // Add noise for liquid/imperfect look
-          const noise = Math.sin(lon * 15 + time * 3) * 8;
-          bx += noise;
-          by += noise;
-          bz += noise;
-
-          // Apply 3D tilt specific to this arc
-          let tx = bx * Math.cos(arc.tiltZ) - by * Math.sin(arc.tiltZ);
-          let ty = by * Math.cos(arc.tiltZ) + bx * Math.sin(arc.tiltZ);
-          let tz = bz;
-
-          let fx = tx * Math.cos(arc.tiltY) - tz * Math.sin(arc.tiltY);
-          let fz = tz * Math.cos(arc.tiltY) + tx * Math.sin(arc.tiltY);
-          let fy = ty;
-
-          const proj = project(fx, fy, fz, rotX, rotY, rotZ);
-
-          if (first) {
-            ctx.moveTo(proj.x, proj.y);
-            first = false;
-          } else ctx.lineTo(proj.x, proj.y);
-        }
-
-        // Random flickering
-        const flicker = Math.random() > 0.95 ? 0.1 : arc.alpha;
-        ctx.strokeStyle = `rgba(255, 180, 0, ${flicker})`;
-        ctx.lineWidth = arc.thickness;
-        ctx.stroke();
-      }
-
-      // --- 4. Draw Particles ---
-      for (const p of particles) {
-        p.theta += p.speed;
-
-        const x = p.r * Math.sin(p.phi) * Math.cos(p.theta);
-        const y = p.r * Math.cos(p.phi);
-        const z = p.r * Math.sin(p.phi) * Math.sin(p.theta);
-
-        const proj = project(x, y, z, rotX, rotY, rotZ);
-
-        ctx.beginPath();
-        ctx.arc(proj.x, proj.y, p.size * proj.s, 0, Math.PI * 2);
-        // Glowing bright yellow/white particles
-        ctx.fillStyle = `rgba(255, 230, 100, ${Math.random() * 0.6 + 0.4})`;
-        ctx.fill();
-      }
-
-      time += 0.025;
-    };
-
-    gsap.ticker.add(window.meshTickerFn);
-  };
-
-  // 2. Transition Loader to Floating Chat Button after 5.5 seconds
-  const hideLoader = () => {
-    // Fade out background and text
-    gsap.to(["#loader-bg", "#loader-text"], {
-      opacity: 0,
-      duration: 1,
-      delay: 5.5,
-      onComplete: () => {
-        const bg = document.getElementById("loader-bg");
-        if (bg) bg.style.display = "none";
-        const txt = document.getElementById("loader-text");
-        if (txt) txt.style.display = "none";
-        
-        // Unblock the screen
-        const wrapper = document.getElementById("loader-wrapper");
-        if (wrapper) wrapper.classList.remove("fixed", "inset-0", "z-[100]");
-        
-        showToast("System mesh loaded successfully", "success");
-        animateViewIn("#view-overview");
-      },
-    });
-
-    // Animate the orb container to the bottom right
-    setTimeout(() => {
-      const orb = document.getElementById("orb-container");
-      if (!orb) return;
-      
-      const rect = orb.getBoundingClientRect();
-      
-      // Lock its current position from the Flexbox layout
-      orb.style.position = "fixed";
-      orb.style.left = rect.left + "px";
-      orb.style.top = rect.top + "px";
-      orb.style.width = rect.width + "px";
-      orb.style.height = rect.height + "px";
-      orb.style.maxWidth = "none";
-      
-      // Reduce the intense ambient glow
-      gsap.to("#orb-glow", { opacity: 0.1, duration: 1.5 });
-
-      // Animate from its exact center position to the bottom right
-      gsap.to(orb, {
-        duration: 1.5,
-        ease: "power3.inOut",
-        left: window.innerWidth - 132, // 100px width + 32px right padding
-        top: window.innerHeight - 132, // 100px height + 32px bottom padding
-        width: 100,
-        height: 100,
-        onComplete: () => {
-          orb.style.left = "auto";
-          orb.style.top = "auto";
-          orb.style.right = "32px";
-          orb.style.bottom = "32px";
-          orb.style.zIndex = "95";
-          orb.classList.add("shadow-[0_0_30px_rgba(251,191,36,0.15)]", "rounded-full");
-        }
-      });
-    }, 5500);
-  };
-
-  // 3. View Management
-  const views = ["#view-overview", "#view-chat", "#view-repos", "#view-docs"];
-
-  const animateViewOut = (viewId, callback) => {
-    gsap.to(`${viewId} > *`, {
-      y: -20,
-      opacity: 0,
-      duration: 0.4,
-      stagger: 0.05,
-      ease: "power2.in",
-      onComplete: () => {
-        document.querySelector(viewId).classList.add("hidden");
-        if (callback) callback();
-      },
-    });
-  };
-
-  const animateViewIn = (viewId) => {
-    document.querySelector(viewId).classList.remove("hidden");
-    gsap.fromTo(
-      `${viewId} > *`,
-      { y: 20, opacity: 0 },
-      { y: 0, opacity: 1, duration: 0.5, stagger: 0.1, ease: "power3.out" },
-    );
-  };
-
-  window.switchView = (targetViewId) => {
-    const currentViewId = views.find(
-      (v) => !document.querySelector(v).classList.contains("hidden"),
-    );
-    if (currentViewId === targetViewId) return;
-
-    if (currentViewId) {
-      animateViewOut(currentViewId, () => {
-        animateViewIn(targetViewId);
-      });
-    } else {
-      animateViewIn(targetViewId);
-    }
-
-    // Update nav active states
-    document.querySelectorAll("nav a").forEach((a) => {
-      a.classList.remove("bg-surface", "text-primary");
-      a.classList.add("text-secondary");
-    });
-    const targetNav = document.querySelector(`[data-target="${targetViewId}"]`);
-    if (targetNav) {
-      targetNav.classList.remove("text-secondary");
-      targetNav.classList.add("bg-surface", "text-primary");
-    }
-  };
-
-  // 4. Toast System
-  window.showToast = (message, type = "info") => {
-    const container = document.getElementById("toast-container");
-    const toast = document.createElement("div");
-
-    let icon = "ph-info";
-    let color = "text-primary";
-    if (type === "success") {
-      icon = "ph-check-circle";
-      color = "text-gold";
-    }
-    if (type === "error") {
-      icon = "ph-warning-circle";
-      color = "text-red-500";
-    }
-
-    toast.className = `toast flex items-center gap-3 bg-surface border border-border px-4 py-3 rounded-lg shadow-lg mb-3 transform-gpu`;
-    toast.innerHTML = `
-            <i class="ph ${icon} ${color} text-lg"></i>
-            <span class="text-sm font-medium text-primary">${message}</span>
-        `;
-
-    container.appendChild(toast);
-
-    // Animate in
-    gsap.fromTo(
-      toast,
-      { x: 100, opacity: 0 },
-      { x: 0, opacity: 1, duration: 0.4, ease: "back.out(1.5)" },
-    );
-
-    // Animate out after 4 seconds
-    setTimeout(() => {
-      gsap.to(toast, {
-        x: 100,
-        opacity: 0,
-        duration: 0.4,
-        ease: "power2.in",
-        onComplete: () => toast.remove(),
-      });
-    }, 4000);
-  };
-
-  // 5. API / RAG chat
-  const chatMessages = document.getElementById("chat-messages");
-  const chatInput = document.getElementById("chat-input");
-  const sendButton = document.getElementById("send-message");
-  const history = [];
-  const escapeHtml = (value) => String(value ?? "").replace(/[&<>'"]/g, (char) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#039;", '"': "&quot;",
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const state = { view: "home", conversationId: null, currentNote: null, projects: [], notes: [], windows: [] };
+
+  const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;",
   }[char]));
 
-  const appendUserMessage = (message) => {
+  const toast = (message, icon = "check-circle") => {
     const item = document.createElement("div");
-    item.className = "flex gap-4 items-start flex-row-reverse";
-    item.innerHTML = `<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0"><i class="ph ph-user text-background text-sm"></i></div><div class="flex flex-col gap-1 w-full max-w-[80%] mt-1 items-end"><span class="text-xs font-mono text-secondary mb-1">Você</span><div class="text-background text-sm leading-relaxed p-4 bg-primary rounded-2xl rounded-tr-sm shadow-md">${escapeHtml(message)}</div></div>`;
-    chatMessages.appendChild(item);
+    item.className = "toast";
+    item.innerHTML = `<i class="ph ph-${icon}"></i><span>${escapeHtml(message)}</span>`;
+    $("#toast-region").appendChild(item);
+    setTimeout(() => item.remove(), 3200);
   };
 
-  const appendAssistantMessage = (payload) => {
-    const item = document.createElement("div");
-    item.className = "flex gap-4 items-start";
-    const steps = (payload.steps || []).map((step) => `<li><span class="text-primary">${escapeHtml(step.label)}</span><span class="block text-tertiary">${escapeHtml(step.detail)}</span></li>`).join("");
-    const sources = (payload.sources || []).map((source, index) => `<a class="source-card" href="${escapeHtml(source.url || "#")}" ${source.url ? 'target="_blank" rel="noreferrer"' : ""}><span class="source-index">${index + 1}</span><span><strong>${escapeHtml(source.title)}</strong><small>${escapeHtml(source.url || source.path)}</small></span></a>`).join("");
-    item.innerHTML = `<div class="w-8 h-8 rounded-full bg-surface border border-gold/30 flex items-center justify-center shrink-0"><i class="ph ph-cpu text-gold text-sm"></i></div><div class="flex flex-col gap-3 w-full mt-1"><span class="text-xs font-mono text-gold">Hermes · ${escapeHtml(payload.model || "Hugging Face")}</span><div class="text-primary text-sm leading-relaxed p-4 bg-surface/50 border border-border rounded-2xl rounded-tl-sm whitespace-pre-wrap">${escapeHtml(payload.answer)}</div><details class="process-card" open><summary><i class="ph ph-brain"></i> Processo da resposta</summary><ol>${steps}</ol></details>${sources ? `<div class="sources-block"><div class="sources-title"><i class="ph ph-quotes"></i> Fontes usadas</div>${sources}</div>` : ""}</div>`;
-    chatMessages.appendChild(item);
-    chatMessages.parentElement?.scrollTo({ top: chatMessages.parentElement.scrollHeight, behavior: "smooth" });
+  const setView = (view) => {
+    const names = { home: "Começo", chat: "Conversas", vault: "Meu vault", projects: "Projetos", desktop: "Desktop", settings: "Personalização" };
+    state.view = view;
+    $$(".view").forEach((item) => item.classList.toggle("active", item.id === `view-${view}`));
+    $$(".rail-button[data-view]").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
+    $$(".context-nav button").forEach((item) => item.classList.toggle("active", item.dataset.view === view));
+    $("#breadcrumbs").innerHTML = `<span>Workspace</span><i class="ph ph-caret-right"></i><strong>${names[view]}</strong>`;
+    if (view === "chat") loadConversations();
+    if (view === "vault") loadVaultNotes();
+    if (view === "projects") loadProjects();
+    if (view === "desktop") loadDesktop();
   };
 
-  const sendMessage = async () => {
-    const message = chatInput?.value.trim();
-    if (!message || !sendButton) return;
-    appendUserMessage(message);
-    history.push({ role: "user", content: message });
-    chatInput.value = "";
-    sendButton.disabled = true;
-    sendButton.innerHTML = '<i class="ph ph-spinner animate-spin text-lg"></i>';
+  $$("[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
+
+  const savedTheme = localStorage.getItem("oros-theme") || "midnight";
+  document.documentElement.dataset.theme = savedTheme;
+  $$(".theme-card").forEach((card) => card.classList.toggle("active", card.dataset.theme === savedTheme));
+  $$(".theme-card").forEach((card) => card.addEventListener("click", () => {
+    document.documentElement.dataset.theme = card.dataset.theme;
+    localStorage.setItem("oros-theme", card.dataset.theme);
+    $$(".theme-card").forEach((item) => item.classList.toggle("active", item === card));
+    toast("Tema atualizado", "palette");
+  }));
+  $("#theme-button").addEventListener("click", () => {
+    const themes = ["midnight", "aurora", "paper", "ember"];
+    const next = themes[(themes.indexOf(document.documentElement.dataset.theme) + 1) % themes.length];
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("oros-theme", next);
+    toast(`Tema ${next}`, "palette");
+  });
+
+  setTimeout(() => $("#boot").classList.add("done"), 900);
+
+  async function api(path, options = {}) {
+    const response = await fetch(path, options);
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error || "Falha na operação");
+    return payload;
+  }
+
+  async function loadStatus() {
     try {
-      const response = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message, history }) });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "Não foi possível consultar o Hermes.");
-      appendAssistantMessage(payload);
-      history.push({ role: "assistant", content: payload.answer });
+      const [status, notes, projects, windows] = await Promise.all([
+        api("/api/capabilities/status"),
+        api("/api/vault/notes"),
+        api("/api/projects"),
+        api("/api/capabilities/windows"),
+      ]);
+      state.notes = notes.notes || [];
+      state.projects = projects.projects || [];
+      state.windows = windows.windows || [];
+      $("#note-count").textContent = state.notes.length;
+      $("#project-count").textContent = state.projects.length;
+      $("#window-count").textContent = state.windows.length;
+      renderRecentNotes();
+      renderRecentProjects();
+      renderContinue();
     } catch (error) {
-      appendAssistantMessage({ answer: error.message, steps: [{ label: "Falha na consulta", detail: "Verifique se o backend está em execução." }], sources: [] });
-    } finally {
-      sendButton.disabled = false;
-      sendButton.innerHTML = '<i class="ph ph-paper-plane-right text-lg"></i>';
+      toast(error.message, "warning-circle");
     }
-  };
+  }
 
-  sendButton?.addEventListener("click", sendMessage);
-  chatInput?.addEventListener("keydown", (event) => {
+  function renderRecentNotes() {
+    $("#recent-notes").innerHTML = state.notes.slice(0, 7).map((note) => `
+      <button class="recent-note" data-note="${escapeHtml(note.path)}">
+        <i class="ph ph-file-text"></i><span>${escapeHtml(note.name)}</span>
+      </button>
+    `).join("") || `<div class="recent-note"><i class="ph ph-files"></i><span>Nenhuma nota</span></div>`;
+    $$(".recent-note[data-note]").forEach((button) => button.addEventListener("click", () => openNote(button.dataset.note)));
+  }
+
+  function renderRecentProjects() {
+    $("#recent-projects").innerHTML = state.projects.slice(0, 4).map((project) => `
+      <button class="project-mini" data-project="${escapeHtml(project.path)}">
+        <i class="ph ph-code"></i>
+        <strong>${escapeHtml(project.name)}</strong>
+        <span>${escapeHtml(project.language || "Projeto")} · ${project.git ? escapeHtml(project.branch || "git") : "local"}</span>
+      </button>
+    `).join("");
+  }
+
+  function renderContinue() {
+    const items = [
+      state.notes[0] ? { icon: "notebook", title: state.notes[0].name, meta: "Vault · Markdown", note: state.notes[0].path } : null,
+      state.projects[0] ? { icon: "code", title: state.projects[0].name, meta: `${state.projects[0].language || "Projeto"} · ${state.projects[0].branch || "local"}`, project: state.projects[0].path } : null,
+      { icon: "chat-circle-dots", title: "Nova conversa com OROS", meta: "Assistente local" },
+    ].filter(Boolean);
+    $("#continue-list").innerHTML = items.map((item, index) => `
+      <button class="continue-item" data-index="${index}">
+        <span class="continue-icon"><i class="ph ph-${item.icon}"></i></span>
+        <span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.meta)}</small></span>
+        <i class="ph ph-arrow-right"></i>
+      </button>
+    `).join("");
+    $$(".continue-item").forEach((button, index) => button.addEventListener("click", () => {
+      const item = items[index];
+      if (item.note) openNote(item.note);
+      else if (item.project) setView("projects");
+      else setView("chat");
+    }));
+  }
+
+  async function loadConversations() {
+    try {
+      const payload = await api("/api/chat/history");
+      const conversations = payload.conversations || [];
+      $("#chat-count").textContent = conversations.length;
+      $("#conversation-list").innerHTML = conversations.map((item) => `
+        <button class="conversation-item ${item.id === state.conversationId ? "active" : ""}" data-conversation="${item.id}">
+          <i class="ph ph-chat-circle"></i><span>${escapeHtml(item.title)}</span>
+        </button>
+      `).join("") || `<div class="conversation-item"><i class="ph ph-chats"></i><span>Sem conversas</span></div>`;
+      $$(".conversation-item[data-conversation]").forEach((button) => button.addEventListener("click", () => openConversation(Number(button.dataset.conversation))));
+    } catch (error) {
+      toast(error.message, "warning-circle");
+    }
+  }
+
+  async function createConversation() {
+    const payload = await api("/api/chat/history", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Nova conversa" }),
+    });
+    state.conversationId = payload.conversation_id;
+    $("#chat-title").textContent = "Nova conversa";
+    $("#chat-messages").innerHTML = welcomeHtml();
+    bindSuggestions();
+    await loadConversations();
+  }
+
+  function welcomeHtml() {
+    return `<div class="welcome-state"><div class="oros-orb"><span></span></div><h2>Como posso ajudar?</h2><p>Posso navegar, escrever no vault, analisar projetos e controlar o ambiente.</p><div class="suggestions"><button data-prompt="Resuma os projetos que estou desenvolvendo e sugira prioridades">Resumir meus projetos</button><button data-prompt="Analise minha tela atual e diga o que você vê">Analisar minha tela</button><button data-prompt="Crie uma nota de planejamento na pasta 01 Projetos">Criar plano no vault</button></div></div>`;
+  }
+
+  function bindSuggestions() {
+    $$(".suggestions button").forEach((button) => button.addEventListener("click", () => {
+      $("#chat-input").value = button.dataset.prompt;
+      sendMessage();
+    }));
+  }
+
+  async function openConversation(id) {
+    const payload = await api(`/api/chat/history/${id}`);
+    state.conversationId = id;
+    $("#chat-title").textContent = payload.conversation.title;
+    $("#chat-messages").innerHTML = payload.messages.map(renderMessage).join("") || welcomeHtml();
+    await loadConversations();
+    bindSuggestions();
+    $("#chat-messages").scrollTop = $("#chat-messages").scrollHeight;
+  }
+
+  function renderMessage(message) {
+    const user = message.role === "user";
+    const assistant = message.role === "assistant";
+    let body = escapeHtml(message.content).replace(/\n/g, "<br>");
+    if (assistant) {
+      const data = message.payload || {};
+      if (data.answer) body = renderMarkdown(data.answer);
+      else body = renderMarkdown(message.content);
+      const sources = (data.sources || []).map((source) => `<a href="${escapeHtml(source.url || "#")}" target="_blank" rel="noreferrer"><i class="ph ph-link"></i>${escapeHtml(source.title)}</a>`).join("");
+      if (sources) body += `<div class="sources-inline">${sources}</div>`;
+    }
+    return `<article class="message ${user ? "user" : "assistant"}"><div class="message-avatar"><i class="ph ${user ? "ph-user" : "ph-sparkle"}"></i></div><div class="message-body"><div class="message-meta"><strong>${user ? "Você" : "OROS"}</strong><span>Agora</span></div><div class="message-content">${body}</div></div></article>`;
+  }
+
+  function renderMarkdown(content) {
+    if (!window.marked || !window.DOMPurify) return escapeHtml(content).replace(/\n/g, "<br>");
+    marked.setOptions({ breaks: true, gfm: true });
+    return DOMPurify.sanitize(marked.parse(content));
+  }
+
+  async function sendMessage() {
+    const input = $("#chat-input");
+    const message = input.value.trim();
+    if (!message) return;
+    if (!state.conversationId) {
+      await createConversation();
+    }
+    const messages = $("#chat-messages");
+    messages.querySelector(".welcome-state")?.remove();
+    messages.insertAdjacentHTML("beforeend", renderMessage({ role: "user", content: message }));
+    messages.insertAdjacentHTML("beforeend", `<article class="message assistant" id="typing-message"><div class="message-avatar"><i class="ph ph-sparkle"></i></div><div class="message-body"><div class="message-meta"><strong>OROS</strong></div><div class="typing"><i></i><i></i><i></i></div></div></article>`);
+    input.value = "";
+    input.style.height = "42px";
+    messages.scrollTop = messages.scrollHeight;
+    $("#send-message").disabled = true;
+    $("#chat-status").textContent = "Pensando";
+    try {
+      const payload = await api("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, conversation_id: state.conversationId, history: [] }),
+      });
+      $("#typing-message")?.remove();
+      messages.insertAdjacentHTML("beforeend", renderMessage({ role: "assistant", content: payload.answer, payload }));
+      if (payload.conversation_id) state.conversationId = payload.conversation_id;
+      await loadConversations();
+    } catch (error) {
+      $("#typing-message")?.remove();
+      messages.insertAdjacentHTML("beforeend", renderMessage({ role: "assistant", content: `Não consegui concluir a ação: ${error.message}` }));
+    } finally {
+      $("#send-message").disabled = false;
+      $("#chat-status").textContent = "OROS 1.0";
+      messages.scrollTop = messages.scrollHeight;
+    }
+  }
+
+  $("#send-message").addEventListener("click", sendMessage);
+  $("#chat-input").addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); sendMessage(); }
   });
+  $("#chat-input").addEventListener("input", (event) => {
+    event.target.style.height = "42px";
+    event.target.style.height = `${Math.min(event.target.scrollHeight, 160)}px`;
+  });
+  $("#new-chat").addEventListener("click", createConversation);
+  bindSuggestions();
 
-  window.addRepository = async () => {
-    const url = window.prompt("URL pública do repositório GitHub:");
-    if (!url) return;
-    const response = await fetch("/api/ingest/repo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
-    const payload = await response.json();
-    showToast(payload.message || payload.error, response.ok ? "success" : "error");
-  };
-
-  document.getElementById("docs-form")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const payload = await fetch("/api/ingest/docs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: document.getElementById("docs-url").value, collection: document.getElementById("docs-collection").value, depth: Number(document.getElementById("docs-depth").value), follow_links: true }) }).then((response) => response.json());
-    showToast(payload.message || payload.error, payload.queued ? "success" : "error");
+  $("#home-command-send").addEventListener("click", () => {
+    const command = $("#home-command").value.trim();
+    if (!command) return;
+    setView("chat");
+    $("#chat-input").value = command;
+    sendMessage();
+  });
+  $("#home-command").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") $("#home-command-send").click();
   });
 
-  fetch("/api/status").then((response) => response.json()).then((payload) => {
-    const status = document.getElementById("workspace-status");
-    if (status && payload.ok) status.textContent = `${payload.repositories.length} repositório(s) e ${payload.source_count} fonte(s) disponíveis para o chat.`;
-  }).catch(() => {});
+  async function loadVaultNotes(query = "") {
+    try {
+      const payload = await api(`/api/vault/notes${query ? `?query=${encodeURIComponent(query)}` : ""}`);
+      state.notes = payload.notes || [];
+      renderVaultTree();
+      $("#note-count").textContent = state.notes.length;
+    } catch (error) {
+      toast(error.message, "warning-circle");
+    }
+  }
 
-  // Initialize
-  initLoader();
-  hideLoader();
-
-  // Event listeners for Navigation
-  document.querySelectorAll("[data-target]").forEach((el) => {
-    el.addEventListener("click", (e) => {
-      e.preventDefault();
-      switchView(el.getAttribute("data-target"));
+  function renderVaultTree() {
+    const folders = new Map();
+    state.notes.forEach((note) => {
+      const parts = note.path.split("/");
+      const folder = parts.length > 1 ? parts.slice(0, -1).join("/") : "Raiz";
+      if (!folders.has(folder)) folders.set(folder, []);
+      folders.get(folder).push(note);
     });
+    $("#vault-tree").innerHTML = [...folders.entries()].map(([folder, notes], index) => `
+      <div class="tree-group">
+        <button class="tree-folder ${index < 3 ? "open" : ""}" data-folder="${escapeHtml(folder)}">
+          <i class="ph ph-caret-right"></i><i class="ph ph-folder"></i><span>${escapeHtml(folder)}</span>
+        </button>
+        <div class="tree-children ${index < 3 ? "open" : ""}">
+          ${notes.slice(0, 80).map((note) => `<button class="tree-note ${state.currentNote === note.path ? "active" : ""}" data-note="${escapeHtml(note.path)}"><i class="ph ph-file-text"></i><span>${escapeHtml(note.name)}</span></button>`).join("")}
+        </div>
+      </div>
+    `).join("");
+    $$(".tree-folder").forEach((button) => button.addEventListener("click", () => {
+      button.classList.toggle("open");
+      button.nextElementSibling.classList.toggle("open");
+    }));
+    $$(".tree-note").forEach((button) => button.addEventListener("click", () => openNote(button.dataset.note)));
+  }
+
+  async function openNote(path) {
+    setView("vault");
+    try {
+      const payload = await api(`/api/vault/note?path=${encodeURIComponent(path)}`);
+      state.currentNote = path;
+      $("#note-path").textContent = path;
+      $("#note-editor").value = payload.content;
+      updatePreview();
+      $$(".tree-note").forEach((item) => item.classList.toggle("active", item.dataset.note === path));
+      toast("Nota aberta", "file-text");
+    } catch (error) {
+      toast(error.message, "warning-circle");
+    }
+  }
+
+  function updatePreview() {
+    $("#note-preview").innerHTML = renderMarkdown($("#note-editor").value);
+  }
+
+  $("#note-editor").addEventListener("input", updatePreview);
+  $("#note-editor").addEventListener("input", () => {
+    $("#save-note").classList.add("pending");
   });
+  $("#vault-search").addEventListener("input", (event) => {
+    clearTimeout(window.vaultSearchTimer);
+    window.vaultSearchTimer = setTimeout(() => loadVaultNotes(event.target.value.trim()), 220);
+  });
+  $("#save-note").addEventListener("click", saveNote);
+  async function saveNote() {
+    if (!state.currentNote) { toast("Selecione uma nota", "warning-circle"); return; }
+    try {
+      await api("/api/vault/note", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: state.currentNote, content: $("#note-editor").value, mode: "write" }),
+      });
+      $("#save-note").classList.remove("pending");
+      toast("Nota salva", "check-circle");
+    } catch (error) {
+      toast(error.message, "warning-circle");
+    }
+  }
+  $("#preview-toggle").addEventListener("click", () => $(".editor-layout").classList.toggle("preview-off"));
+  $("#delete-note").addEventListener("click", async () => {
+    if (!state.currentNote) return;
+    if (!confirm(`Mover "${state.currentNote}" para a lixeira?`)) return;
+    try {
+      await api(`/api/vault/note?path=${encodeURIComponent(state.currentNote)}`, { method: "DELETE" });
+      state.currentNote = null;
+      $("#note-editor").value = "";
+      $("#note-preview").innerHTML = "";
+      $("#note-path").textContent = "Nenhuma nota selecionada";
+      await loadVaultNotes();
+      toast("Nota movida para a lixeira", "trash");
+    } catch (error) {
+      toast(error.message, "warning-circle");
+    }
+  });
+
+  async function newVaultNote() {
+    setView("vault");
+    const name = prompt("Nome da nota", "Nova nota");
+    if (!name) return;
+    const safeName = name.replace(/[\/\\]/g, "-").replace(/\.md$/i, "");
+    const path = `00 Entrada/${safeName}.md`;
+    try {
+      await api("/api/vault/note", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path, content: `# ${safeName}\n\n`, mode: "write" }),
+      });
+      await loadVaultNotes();
+      await openNote(path);
+      toast("Nota criada", "file-plus");
+    } catch (error) {
+      toast(error.message, "warning-circle");
+    }
+  }
+  $("#new-vault-note").addEventListener("click", newVaultNote);
+  $("#new-note").addEventListener("click", newVaultNote);
+
+  async function loadProjects() {
+    try {
+      const payload = await api("/api/projects");
+      state.projects = payload.projects || [];
+      $("#git-project-count").textContent = state.projects.filter((project) => project.git).length;
+      $("#ready-project-count").textContent = state.projects.filter((project) => project.language).length;
+      $("#project-count").textContent = state.projects.length;
+      renderProjectGrid();
+    } catch (error) {
+      toast(error.message, "warning-circle");
+    }
+  }
+
+  function renderProjectGrid() {
+    $("#project-grid").innerHTML = state.projects.map((project) => `
+      <article class="project-card" data-project="${escapeHtml(project.path)}">
+        <div class="project-card-head">
+          <span class="project-code"><i class="ph ph-code"></i></span>
+          ${project.git ? `<span class="git-status"><i></i>Git</span>` : ""}
+        </div>
+        <h3>${escapeHtml(project.name)}</h3>
+        <p>${escapeHtml(project.path)}</p>
+        <div class="project-card-foot">
+          <span>${escapeHtml(project.language || "Projeto")} · ${escapeHtml(project.branch || "local")}</span>
+          <button title="Abrir projeto"><i class="ph ph-arrow-square-out"></i></button>
+        </div>
+      </article>
+    `).join("");
+  }
+
+  $$(".segmented button").forEach((button) => button.addEventListener("click", () => {
+    $$(".segmented button").forEach((item) => item.classList.remove("active"));
+    button.classList.add("active");
+    $("#project-grid").classList.toggle("timeline", button.dataset.layout === "timeline");
+  }));
+  $("#open-terminal").addEventListener("click", () => toast("Terminal integrado disponível no Desktop", "terminal"));
+
+  async function loadDesktop() {
+    try {
+      const payload = await api("/api/capabilities/windows");
+      state.windows = payload.windows || [];
+      $("#window-count").textContent = state.windows.length;
+      $("#window-list").innerHTML = state.windows.map((window) => `
+        <div class="window-item">
+          <span class="window-icon"><i class="ph ${window.class?.toLowerCase().includes("chrome") ? "ph-browser" : "ph-window"}"></i></span>
+          <span><strong>${escapeHtml(window.title || "Sem título")}</strong><small>${escapeHtml(window.class || "Janela")} · Workspace ${escapeHtml(window.workspace || "?")}</small></span>
+          <button data-address="${escapeHtml(window.address)}" title="Focar janela"><i class="ph ph-crosshair"></i></button>
+        </div>
+      `).join("") || `<div class="screen-empty"><i class="ph ph-monitor"></i><span>Nenhuma janela detectada</span></div>`;
+    } catch (error) {
+      toast(error.message, "warning-circle");
+    }
+  }
+
+  async function captureScreen() {
+    try {
+      toast("Capturando tela", "camera");
+      await api("/api/capabilities/screen/capture", { method: "POST" });
+      $("#screen-frame").innerHTML = `<img src="/api/capabilities/screen/image?t=${Date.now()}" alt="Captura atual da tela">`;
+      await loadDesktop();
+    } catch (error) {
+      toast(error.message, "warning-circle");
+    }
+  }
+  $("#capture-button").addEventListener("click", () => { setView("desktop"); captureScreen(); });
+  $("#desktop-capture").addEventListener("click", captureScreen);
+  $("#desktop-refresh").addEventListener("click", loadDesktop);
+  $("#attach-screen").addEventListener("click", async () => {
+    setView("chat");
+    await captureScreen();
+    $("#chat-input").value = "Analise a captura atual da minha tela e explique o que está acontecendo.";
+  });
+  $("#focus-oros").addEventListener("click", () => toast("OROS já está em foco neste workspace", "crosshair"));
+
+  $("#quick-search").addEventListener("click", () => toast("Busca rápida em desenvolvimento", "magnifying-glass"));
+  document.addEventListener("keydown", (event) => {
+    if (event.metaKey || event.ctrlKey) {
+      if (event.key.toLowerCase() === "h") { event.preventDefault(); setView("home"); }
+      if (event.key.toLowerCase() === "v") { event.preventDefault(); setView("vault"); }
+    }
+  });
+
+  loadStatus();
+  loadConversations();
+  setView("home");
 });
