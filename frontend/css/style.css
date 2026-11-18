@@ -221,13 +221,13 @@ html[data-theme="paper"] .topbar { background:rgba(235,232,223,.82); }
   border:0;
   background:transparent;
   pointer-events:auto;
-  opacity:.92;
+  opacity:1;
   filter:drop-shadow(0 0 32px rgba(var(--accent-rgb),.14));
   transition:opacity .55s ease,filter .55s ease,transform .55s cubic-bezier(.22,.68,0,1);
 }
 .chat-messages.conversation-active .chat-oros-core {
-  opacity:.82;
-  transform:translate(-50%,-50%) scale(.92);
+  opacity:1;
+  transform:translate(-50%,-50%) scale(1);
   filter:saturate(1) blur(0);
 }
 .chat-messages:not(.conversation-active) .chat-oros-core {
@@ -235,7 +235,7 @@ html[data-theme="paper"] .topbar { background:rgba(235,232,223,.82); }
 }
 @keyframes coreBackgroundEnter {
   from { opacity:0; transform:translate(-50%,-50%) scale(.68) rotate(-8deg); }
-  to { opacity:.46; transform:translate(-50%,-50%) scale(1) rotate(0); }
+  to { opacity:1; transform:translate(-50%,-50%) scale(1) rotate(0); }
 }
 .welcome-state {
   position:relative;
@@ -893,11 +893,11 @@ body.chat-immersive .chat-messages {
   overflow:hidden;
 }
 body.chat-immersive .chat-oros-core {
-  width:min(1180px,118vw);
-  height:min(1180px,118vh);
+  width:100vw;
+  height:100vh;
   left:50%;
   top:50%;
-  transform:translate(-50%,-50%);
+  transform:translate(-50%,-50%) scale(1);
   opacity:1;
   filter:
     brightness(1.55)
@@ -907,7 +907,7 @@ body.chat-immersive .chat-oros-core {
 }
 body.chat-immersive .chat-messages.conversation-active .chat-oros-core {
   opacity:1;
-  transform:translate(-50%,-50%) scale(.96);
+  transform:translate(-50%,-50%) scale(1);
 }
 body.chat-immersive .welcome-state {
   height:100%;
