@@ -1,5 +1,52 @@
 # OROS capability setup
 
+## Mandatory local integrations
+
+### Active context
+
+`GET /api/context/active` combines the focused Hyprland window, open-window
+inventory, clipboard text, inferred project and stack-trace locations. Clipboard
+access is read-only and is transmitted only through the local OROS API.
+
+### Guardian Gate
+
+`GET /api/guardian` lists pending actions and audit records.
+`POST /api/guardian` creates a risk classification. Risk 0 is read-only, risk 1
+is reversible, and risk 2 is external or destructive and requires approval.
+`POST /api/guardian/<id>/approve` approves a pending request.
+
+### War Room
+
+`POST /api/war-room` focuses or launches the VS Code project window, starts a
+terminal in the project directory, opens an optional Obsidian note and pauses
+notifications.
+
+### Arch Sentinel
+
+`GET /api/sentinel/status` reports disk usage, failed services, recent warning
+journal entries, package updates and orphaned packages. It does not modify the
+system.
+
+### Obsidian graph and garden
+
+- `GET /api/vault/graph` builds a local wikilink graph.
+- `GET /api/vault/garden` creates today's daily note and proposes backlinks.
+- `GET /api/vault/frontmatter?path=...` separates YAML frontmatter from Markdown.
+
+### Browser and research
+
+`POST /api/browser/navigate` opens or reuses an HTTP(S) browser session.
+`POST /api/research` searches DuckDuckGo, extracts pages and optionally writes
+the report into `05 Recursos/OROS/Pesquisas` in the vault.
+
+### Code tasks and Google
+
+`POST /api/code/task` runs an inferred test command inside an allowlisted
+project. It does not silently execute destructive commands.
+
+`GET /api/google/status` reports the locally configured OpenJarvis Google
+connectors. Account setup remains OAuth-based and credentials stay outside Git.
+
 ## Obsidian vault
 
 The primary vault is `/home/borges/minha-mente`, configured in

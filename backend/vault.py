@@ -7,6 +7,8 @@ and path-safe write operations for OROS.
 from __future__ import annotations
 
 import os
+import re
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 
@@ -119,3 +121,92 @@ class Vault:
         target = trash / f"{path.stem}-{os.getpid()}{path.suffix}"
         path.rename(target)
         return {"deleted": relative_path, "trash": str(target.relative_to(self.root))}
+
+    def graph(self) -> dict:
+        nodes = []
+        edges = []
+        notes = self.list_notes()
+        available = {note["path"][:-3] if note["path"].endswith(".md") else note["path"] for note in notes}
+        for note in notes:
+            path = note["path"]
+            source = path[:-3] if path.endswith(".md") else path
+            nodes.append({
+                "id": source,
+                "label": note["name"],
+                "path": path,
+                "size": note["size"],
+            })
+            try:
+                text = (self.root / path).read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            for target in re.findall(r"\[\[([^\]|#]+)", text):
+                clean = target.strip()
+                matches = [item for item in available if item == clean or item.endswith(f"/{clean}") or item.split("/")[-1] == clean]
+                for match in matches[:1]:
+                    edges.append({"source": source, "target": match})
+        return {"ok": True, "nodes": nodes[:3000], "edges": edges[:10000]}
+
+    def frontmatter(self, relative_path: str) -> dict:
+        result = self.read(relative_path)
+        text = result["content"]
+        metadata = {}
+        body = text
+        if text.startswith("---"):
+            end = text.find("\n---", 3)
+            if end >= 0:
+                raw = text[3:end].strip()
+                body = text[end + 4:].lstrip("\r\n")
+                for line in raw.splitlines():
+                    key, separator, value = line.partition(":")
+                    if separator:
+                        metadata[key.strip()] = value.strip().strip("'\"")
+        return {"ok": True, "path": relative_path, "metadata": metadata, "body": body}
+
+    def auto_links(self, limit: int = 100) -> list[dict]:
+        notes = self.list_notes()
+        suggestions = []
+        for note in notes:
+            path = note["path"]
+            source_path = self.root / path
+            try:
+                text = source_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            words = {word.casefold() for word in re.findall(r"[\wÀ-ÿ]{5,}", text)}
+            links = set(re.findall(r"\[\[([^\]|]+)", text))
+            for candidate in notes:
+                if candidate["path"] == path:
+                    continue
+                title = candidate["name"]
+                if title.casefold() in links or title.casefold() in text.casefold():
+                    continue
+                if title.casefold() in words:
+                    suggestions.append({
+                        "source": path,
+                        "suggested_target": candidate["path"],
+                        "title": title,
+                        "reason": "Title appears in note body",
+                    })
+                    if len(suggestions) >= limit:
+                        return suggestions
+        return suggestions
+
+    def daily_garden(self) -> dict:
+        journal = self.root / "04 Journal" / "01 Diário"
+        journal.mkdir(parents=True, exist_ok=True)
+        now = datetime.now()
+        path = journal / f"{now.strftime('%Y-%m-%d')}.md"
+        if not path.exists():
+            path.write_text(
+                f"# Diário {now.strftime('%d/%m/%Y')}\n\n"
+                "## Foco\n- \n\n## Concluído\n- \n\n## Tarefas esquecidas\n- \n\n"
+                "## Ideias\n- \n",
+                encoding="utf-8",
+            )
+        suggestions = self.auto_links(limit=20)
+        return {
+            "ok": True,
+            "daily_note": str(path.relative_to(self.root)),
+            "link_suggestions": suggestions,
+        }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import urllib.parse
 from pathlib import Path
 from typing import Any
 
@@ -60,3 +61,36 @@ def connect_existing_browser(port: int) -> dict:
         }
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
+
+
+def navigate_existing_browser(port: int, url: str) -> dict:
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in {"http", "https"}:
+        return {"ok": False, "error": "Only HTTP(S) URLs are allowed"}
+    connected = connect_existing_browser(port)
+    if not connected["ok"]:
+        return connected
+    browser = connected.pop("_browser")
+    playwright = connected.pop("_playwright")
+    try:
+        contexts = browser.contexts
+        if contexts:
+            pages = contexts[0].pages
+            page = pages[0] if pages else contexts[0].new_page()
+        else:
+            context = browser.new_context()
+            page = context.new_page()
+        response = page.goto(url, wait_until="domcontentloaded", timeout=30000)
+        text = page.inner_text("body")[:10000]
+        result = {
+            "ok": True,
+            "url": page.url,
+            "title": page.title(),
+            "status": response.status if response else None,
+            "text": text,
+        }
+    except Exception as exc:
+        result = {"ok": False, "error": str(exc)}
+    finally:
+        playwright.stop()
+    return result

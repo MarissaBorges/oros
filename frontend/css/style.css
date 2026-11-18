@@ -723,6 +723,18 @@ body.module-mode.sidebar-collapsed .app-shell,
   .kanban-column { min-height:180px; }
 }
 
+.sentinel-grid {
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
+  margin-top:14px;
+}
+.sentinel-grid .panel { min-height:190px; }
+.sentinel-content { padding:0 14px 14px;color:var(--text-soft);font-size:11px;line-height:1.7; }
+.sentinel-content strong { color:var(--text); }.sentinel-content .warning { color:#ffb36b; }
+.warroom-actions { display:flex;flex-direction:column;gap:8px;padding:0 12px 12px; }
+.warroom-actions .glass-button { justify-content:center; }
+
 .panel::before,.project-card::before,.command-card::before {
   display:none;
 }

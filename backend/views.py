@@ -5,6 +5,7 @@ import json
 import sqlite3
 import time
 import subprocess
+import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -18,7 +19,12 @@ from .rag import ask_huggingface, build_prompt, search_sources
 from .desktop import active_windows, capture_screen, find_window, focus_window, open_url
 from .shell import run_command
 from .vault import Vault, VaultError
-from .browser import find_chrome_debug_sessions
+from .browser import find_chrome_debug_sessions, navigate_existing_browser
+from .guardian import Guardian
+from .context import snapshot as context_snapshot
+from .sentinel import snapshot as sentinel_snapshot
+from .warroom import start_war_room
+from .research import search as research_search, extract as research_extract, create_report
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -128,6 +134,10 @@ def desktop_open(request):
     url = str(payload.get("url", "")).strip()
     if not url:
         return JsonResponse({"error": "URL is required."}, status=400)
+    guardian = Guardian()
+    authorization = guardian.authorize("open browser", url)
+    if not authorization["allowed"]:
+        return JsonResponse({"ok": False, "requires_approval": True, "approval": authorization}, status=202)
     existing = find_window(str(payload.get("match", ""))) if payload.get("match") else None
     if existing:
         focus_result = focus_window(existing["address"])
@@ -139,6 +149,167 @@ def desktop_open(request):
 
 def browser_sessions(request):
     return JsonResponse({"ok": True, "sessions": find_chrome_debug_sessions()})
+
+
+@csrf_exempt
+def browser_navigate(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Use POST."}, status=405)
+    payload = _json(request)
+    url = str(payload.get("url", "")).strip()
+    port = payload.get("port")
+    if not url:
+        return JsonResponse({"error": "URL is required."}, status=400)
+    if port:
+        result = navigate_existing_browser(int(port), url)
+    else:
+        import webbrowser
+        webbrowser.open(url)
+        result = {"ok": True, "url": url, "title": ""}
+    return JsonResponse(result, status=200 if result["ok"] else 400)
+
+
+@csrf_exempt
+def guardian_requests(request):
+    guardian = Guardian()
+    if request.method == "GET":
+        return JsonResponse({"ok": True, "pending": guardian.pending(), "audit": guardian.audit()})
+    if request.method != "POST":
+        return JsonResponse({"error": "Use GET or POST."}, status=405)
+    payload = _json(request)
+    action = str(payload.get("action", "")).strip()
+    resource = str(payload.get("resource", "")).strip()
+    approved = bool(payload.get("approved", False))
+    if not action:
+        return JsonResponse({"error": "Action is required."}, status=400)
+    return JsonResponse({"ok": True, **guardian.authorize(action, resource, approved=approved, reason=str(payload.get("reason", "")))})
+
+
+@csrf_exempt
+def guardian_approve(request, record_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Use POST."}, status=405)
+    return JsonResponse(Guardian().approve(record_id))
+
+
+def context_active(request):
+    return JsonResponse(context_snapshot())
+
+
+def sentinel_status(request):
+    return JsonResponse(sentinel_snapshot())
+
+
+@csrf_exempt
+def war_room(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Use POST."}, status=405)
+    payload = _json(request)
+    project = str(payload.get("project", "")).strip()
+    note = str(payload.get("note", ""))
+    if not project:
+        return JsonResponse({"error": "Project path is required."}, status=400)
+    return JsonResponse(start_war_room(project, note))
+
+
+@csrf_exempt
+def vault_graph(request):
+    try:
+        return JsonResponse(_vault().graph())
+    except (VaultError, OSError) as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+
+
+@csrf_exempt
+def vault_garden(request):
+    try:
+        return JsonResponse(_vault().daily_garden())
+    except (VaultError, OSError) as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+
+
+@csrf_exempt
+def vault_frontmatter(request):
+    path = str(request.GET.get("path", "")).strip()
+    if not path:
+        return JsonResponse({"error": "path is required."}, status=400)
+    try:
+        return JsonResponse(_vault().frontmatter(path))
+    except (VaultError, OSError) as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=400)
+
+
+@csrf_exempt
+def research(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Use POST."}, status=405)
+    payload = _json(request)
+    query = str(payload.get("query", "")).strip()
+    if not query:
+        return JsonResponse({"error": "Research query is required."}, status=400)
+    try:
+        results = research_search(query, int(payload.get("max_results", 8)))
+        extracted = []
+        for result in results[: min(5, len(results))]:
+            try:
+                item = research_extract(result["url"])
+                if item["ok"]:
+                    extracted.append(item)
+            except Exception:
+                continue
+        report = None
+        if payload.get("save_to_vault", True):
+            report = create_report(query, results, _vault().root)
+        return JsonResponse({"ok": True, "query": query, "results": results, "extracted": extracted, "report": report})
+    except Exception as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=502)
+
+
+@csrf_exempt
+def code_task(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "Use POST."}, status=405)
+    payload = _json(request)
+    project = str(payload.get("project", "")).strip()
+    command = str(payload.get("command", "")).strip()
+    task = str(payload.get("task", "")).strip()
+    if not project:
+        return JsonResponse({"error": "Project path is required."}, status=400)
+    project_path = Path(project).expanduser().resolve()
+    if not project_path.is_dir():
+        return JsonResponse({"error": "Project directory does not exist."}, status=400)
+    if not any(project_path == Path(item).resolve() or project_path.is_relative_to(Path(item).resolve()) for item in _config()["allowed_shell_dirs"]):
+        return JsonResponse({"error": "Project is outside the OROS allowlist."}, status=403)
+    if not command:
+        if (project_path / "pyproject.toml").exists():
+            command = "python -m pytest -q"
+        elif (project_path / "package.json").exists():
+            command = "npm test -- --run"
+        elif (project_path / "Cargo.toml").exists():
+            command = "cargo test"
+        elif (project_path / "go.mod").exists():
+            command = "go test ./..."
+        else:
+            return JsonResponse({"error": "No test command could be inferred."}, status=400)
+    guardian = Guardian()
+    authorization = guardian.authorize(f"run {task or command}", str(project_path))
+    if not authorization["allowed"]:
+        return JsonResponse({"ok": False, "requires_approval": True, "approval": authorization}, status=202)
+    return JsonResponse({"ok": True, "project": str(project_path), "command": command, **run_command(command, str(project_path), int(payload.get("timeout", 300)))})
+
+
+def google_status(request):
+    openjarvis_config = Path.home() / ".openjarvis"
+    connectors = openjarvis_config / "connectors"
+    available = []
+    if connectors.exists():
+        available = sorted(path.stem for path in connectors.glob("*.json"))
+    return JsonResponse({
+        "ok": True,
+        "configured_connectors": available,
+        "supported": ["gmail", "gcalendar", "gdrive", "gcontacts", "gtasks"],
+        "setup": "Use 'jarvis connect gdrive' or the OpenJarvis connector UI.",
+    })
 
 
 @csrf_exempt
@@ -170,6 +341,9 @@ def vault_note(request):
         if request.method == "DELETE":
             if not relative_path:
                 return JsonResponse({"error": "path is required."}, status=400)
+            authorization = Guardian().authorize("delete vault note", relative_path, approved=bool(payload.get("approved", False)))
+            if not authorization["allowed"]:
+                return JsonResponse({"ok": False, "requires_approval": True, "approval": authorization}, status=202)
             return JsonResponse({"ok": True, **vault.delete(relative_path)})
         relative_path = str(payload.get("path", relative_path)).strip()
         content = str(payload.get("content", ""))
@@ -189,6 +363,11 @@ def terminal_run(request):
     command = str(payload.get("command", "")).strip()
     working_dir = str(payload.get("working_dir", "/home/borges/dev")).strip()
     timeout = int(payload.get("timeout", 60))
+    approved = bool(payload.get("approved", False))
+    guardian = Guardian()
+    authorization = guardian.authorize(f"run {command}", working_dir, approved=approved)
+    if not authorization["allowed"]:
+        return JsonResponse({"ok": False, "requires_approval": True, "approval": authorization}, status=202)
     return JsonResponse(run_command(command, working_dir, timeout))
 
 

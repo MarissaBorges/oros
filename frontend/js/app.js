@@ -581,6 +581,25 @@ document.addEventListener("DOMContentLoaded", () => {
           <button data-address="${escapeHtml(window.address)}" title="Focar janela"><i class="ph ph-crosshair"></i></button>
         </div>
       `).join("") || `<div class="screen-empty"><i class="ph ph-monitor"></i><span>Nenhuma janela detectada</span></div>`;
+      const [contextPayload, sentinelPayload] = await Promise.all([
+        api("/api/context/active"),
+        api("/api/sentinel/status"),
+      ]);
+      const activeTitle = contextPayload.active_window?.title || "Nenhuma janela ativa";
+      $("#active-context-title").textContent = activeTitle;
+      const traceCount = contextPayload.trace?.locations?.length || 0;
+      $("#active-context").innerHTML = `
+        <div><strong>Janela:</strong> ${escapeHtml(contextPayload.active_window?.class || "desconhecida")}</div>
+        <div><strong>Projeto:</strong> ${escapeHtml(contextPayload.project?.name || "não identificado")}</div>
+        <div><strong>Clipboard:</strong> ${contextPayload.clipboard?.available ? `${traceCount ? "trace detectado" : "conteúdo disponível"}` : "indisponível"}</div>
+      `;
+      const diskPercent = sentinelPayload.disk?.percent || "0%";
+      $("#sentinel-title").textContent = sentinelPayload.warnings?.length ? `${sentinelPayload.warnings.length} alertas` : "Sistema saudável";
+      $("#sentinel-status").innerHTML = `
+        <div><strong>Disco:</strong> ${escapeHtml(diskPercent)}</div>
+        <div><strong>Pacotes:</strong> ${sentinelPayload.packages?.updates?.length || 0} atualizações</div>
+        ${sentinelPayload.warnings?.length ? `<div class="warning">${sentinelPayload.warnings.map(escapeHtml).join("<br>")}</div>` : "<div>Sem warnings críticos</div>"}
+      `;
     } catch (error) {
       toast(error.message, "warning-circle");
     }
@@ -599,6 +618,39 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#capture-button").addEventListener("click", () => { setView("desktop"); captureScreen(); });
   $("#desktop-capture").addEventListener("click", captureScreen);
   $("#desktop-refresh").addEventListener("click", loadDesktop);
+  $("#warroom-project")?.addEventListener("click", async () => {
+    const project = state.projects[0];
+    if (!project) {
+      await loadProjects();
+    }
+    const target = state.projects[0];
+    if (!target) {
+      toast("Nenhum projeto disponível", "warning-circle");
+      return;
+    }
+    try {
+      const result = await api("/api/war-room", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project: target.path }),
+      });
+      toast(result.ok ? "War Room organizado" : "War Room iniciou parcialmente", result.ok ? "scan" : "warning-circle");
+    } catch (error) {
+      toast(error.message, "warning-circle");
+    }
+  });
+  $("#notifications-toggle")?.addEventListener("click", async () => {
+    try {
+      await api("/api/terminal/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: "dunstctl set-paused true", working_dir: "/home/borges/dev", approved: false }),
+      });
+      toast("Notificações silenciadas", "bell-slash");
+    } catch (error) {
+      toast(error.message, "warning-circle");
+    }
+  });
   $("#attach-screen").addEventListener("click", async () => {
     setView("chat");
     await captureScreen();
