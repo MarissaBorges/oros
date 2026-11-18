@@ -191,6 +191,10 @@ document.addEventListener("DOMContentLoaded", () => {
       state.notes = notes.notes || [];
       state.projects = projects.projects || [];
       state.windows = windows.windows || [];
+      if (status.ollama?.installed_models?.length) {
+        const model = status.ollama.active_model || status.ollama.installed_models[0];
+        $("#chat-status").textContent = `Local · ${model}`;
+      }
       $("#note-count").textContent = state.notes.length;
       $("#project-count").textContent = state.projects.length;
       $("#window-count").textContent = state.windows.length;
@@ -841,6 +845,8 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const stopVoice = () => {
+      handsFree = false;
+      localStorage.setItem("oros-hands-free", "false");
       recognitionActive = false;
       if (recognition) {
         try { recognition.stop(); } catch {}
@@ -878,7 +884,11 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     };
 
-    const startVoice = async () => {
+    let wakeActive = false;
+    let wakeArmed = false;
+    let handsFree = false;
+
+    const startVoice = async (automatic = false) => {
       if (!Recognition) {
         voiceConsole.classList.add("active");
         voiceState.textContent = "Recurso indisponível";
@@ -886,17 +896,19 @@ document.addEventListener("DOMContentLoaded", () => {
         toast("Reconhecimento de voz não suportado", "warning-circle");
         return;
       }
-      state.voiceReply = true;
+      if (automatic) wakeArmed = true;
+      localStorage.setItem("oros-hands-free", "true");
       recognition = new Recognition();
       recognition.lang = "pt-BR";
-      recognition.continuous = false;
+      recognition.continuous = true;
       recognition.interimResults = true;
       recognition.onstart = () => {
         recognitionActive = true;
+        handsFree = true;
         voiceConsole.classList.add("active", "listening");
         voiceButton.classList.add("listening");
-        voiceState.textContent = "Escutando...";
-        voiceTranscript.textContent = "Pode falar";
+        voiceState.textContent = "Escutando pelo wake word";
+        voiceTranscript.textContent = 'Diga "OROS"';
         startAudioAnalysis();
       };
       recognition.onresult = (event) => {
@@ -906,38 +918,69 @@ document.addEventListener("DOMContentLoaded", () => {
           if (event.results[index].isFinal) finalText += event.results[index][0].transcript;
           else interimText += event.results[index][0].transcript;
         }
-        voiceTranscript.textContent = finalText || interimText || "Pode falar";
+        const heard = (finalText || interimText || "").trim();
+        voiceTranscript.textContent = heard || 'Diga "OROS"';
         if (finalText) {
-          $("#chat-input").value = finalText.trim();
-          recognition.stop();
+          const normalized = finalText.toLowerCase();
+          const wakeMatch = normalized.match(/\b(?:oros|joros|óros|jarvis)\b/i);
+          if (!wakeActive && wakeMatch) {
+            wakeActive = true;
+            const rest = finalText.slice(normalized.indexOf(wakeMatch[0]) + wakeMatch[0].length).trim();
+            voiceState.textContent = "OROS ativado";
+            voiceTranscript.textContent = rest || "Pode falar";
+            state.voiceReply = true;
+            if (rest) {
+              $("#chat-input").value = rest;
+              setTimeout(sendMessage, 180);
+              wakeActive = false;
+            }
+          } else if (wakeActive) {
+            $("#chat-input").value = finalText.trim();
+            voiceTranscript.textContent = finalText.trim();
+            state.voiceReply = true;
+            setTimeout(sendMessage, 180);
+            wakeActive = false;
+          }
         }
       };
       recognition.onerror = (event) => {
+        if (event.error === "no-speech" || event.error === "aborted") return;
         voiceState.textContent = "Reconhecimento interrompido";
         voiceTranscript.textContent = event.error === "not-allowed" ? "Permissão de microfone recusada" : `Erro: ${event.error}`;
       };
       recognition.onend = () => {
-        if (recognitionActive) {
-          recognitionActive = false;
-          stopAudioAnalysis();
-          voiceConsole.classList.remove("listening");
-          voiceButton.classList.remove("listening");
-          voiceState.textContent = "Transcrição concluída";
-          const text = $("#chat-input").value.trim();
-          if (text) setTimeout(sendMessage, 180);
-        }
+        if (!handsFree) return;
+        setTimeout(() => {
+          if (!handsFree) return;
+          try { recognition.start(); } catch {}
+        }, 250);
       };
       recognition.start();
     };
 
     voiceButton.addEventListener("click", () => {
-      if (recognitionActive) stopVoice();
+      if (handsFree) {
+        handsFree = false;
+        localStorage.setItem("oros-hands-free", "false");
+        stopVoice();
+      }
       else {
         setView("chat");
         startVoice();
       }
     });
     voiceStop.addEventListener("click", stopVoice);
+    $("#global-voice-button")?.addEventListener("click", () => {
+      setView("chat");
+      if (handsFree) {
+        localStorage.setItem("oros-hands-free", "false");
+        stopVoice();
+      }
+      else startVoice();
+    });
+    if (localStorage.getItem("oros-hands-free") === "true") {
+      setTimeout(() => startVoice(true), 1800);
+    }
   }
 
   initHolographicCanvas();

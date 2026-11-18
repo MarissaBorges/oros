@@ -15,7 +15,7 @@ from django.views.decorators.csrf import csrf_exempt
 from .loaders.gitloader import download_repo
 from .loaders.scraper import scraper_docs
 
-from .rag import ask_huggingface, build_prompt, search_sources
+from .rag import ask_huggingface, ask_ollama, build_prompt, search_sources
 from .desktop import active_windows, capture_screen, find_window, focus_window, open_url
 from .shell import run_command
 from .vault import Vault, VaultError
@@ -88,6 +88,17 @@ def status(request):
 
 def capabilities_status(request):
     config = _config()
+    ollama_status = {"ok": False, "model": os.getenv("OROS_OLLAMA_MODEL", "qwen3:8b"), "server": "http://127.0.0.1:11434"}
+    try:
+        import requests
+        response = requests.get("http://127.0.0.1:11434/api/tags", timeout=2)
+        response.raise_for_status()
+        models = [item["name"] for item in response.json().get("models", [])]
+        ollama_status["ok"] = True
+        ollama_status["installed_models"] = models
+        ollama_status["active_model"] = os.getenv("OROS_OLLAMA_MODEL", "qwen3:8b") if os.getenv("OROS_OLLAMA_MODEL") else ("qwen3:8b" if "qwen3:8b" in models else "qwen2.5:3b")
+    except Exception:
+        pass
     return JsonResponse({
         "ok": True,
         "runtime": "OpenJarvis",
@@ -97,6 +108,7 @@ def capabilities_status(request):
         "autonomy": config["autonomy"],
         "desktop": "Hyprland",
         "active_windows": active_windows(),
+        "ollama": ollama_status,
     })
 
 
@@ -535,7 +547,10 @@ def chat(request):
         return JsonResponse({"error": "A mensagem é obrigatória."}, status=400)
     sources = search_sources(question)
     prompt = build_prompt(question, payload.get("history", []), sources)
-    answer, error = ask_huggingface(prompt)
+    answer, error, model = ask_ollama(prompt)
+    if not answer:
+        answer, error = ask_huggingface(prompt)
+        model = os.getenv("HF_MODEL", "meta-llama/Llama-3.2-3B-Instruct")
     steps = [
         {"label": "Entendi a pergunta", "detail": f"Identifiquei o objetivo técnico e {len(question.split())} palavras-chave."},
         {"label": "Busquei na base local", "detail": f"Comparei os documentos indexados e encontrei {len(sources)} fonte(s) relevante(s)."},
@@ -546,7 +561,7 @@ def chat(request):
         answer = "Ainda não consigo consultar o modelo de IA. " + error
         steps[-1]["detail"] = "A recuperação funcionou, mas a chamada ao modelo não foi concluída."
     citations = [{"title": item["title"], "path": item["path"], "url": item.get("url") or None, "score": item["score"]} for item in sources]
-    result = {"answer": answer, "steps": steps, "sources": citations, "model": os.getenv("HF_MODEL", "meta-llama/Llama-3.2-3B-Instruct"), "error": error}
+    result = {"answer": answer, "steps": steps, "sources": citations, "model": model, "error": error}
     conversation_id = payload.get("conversation_id")
     if conversation_id:
         connection = _chat_db()

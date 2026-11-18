@@ -2,6 +2,17 @@
 
 ## Mandatory local integrations
 
+## Hands-free voice
+
+OROS uses continuous browser speech recognition after the first explicit
+microphone activation. Saying `OROS`, `Jarvis` or `Oros` enters listening mode.
+The recognized Portuguese text is sent to the normal chat endpoint and replies
+are spoken with the browser's local speech-synthesis voices.
+
+The current backend prefers Ollama `qwen3:8b`. When that model is still
+downloading, `qwen2.5:3b` is used automatically if installed. The configured
+model can be changed with `OROS_OLLAMA_MODEL`.
+
 ### Active context
 
 `GET /api/context/active` combines the focused Hyprland window, open-window

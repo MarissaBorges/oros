@@ -12,7 +12,7 @@ DATA_DIR = ROOT / "data"
 IGNORED = {".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build"}
 EXTENSIONS = {".md", ".txt", ".py", ".js", ".ts", ".tsx", ".jsx", ".json", ".html", ".css"}
 
-SYSTEM_PROMPT = """Você é Hermes, um assistente técnico especialista em documentação e código.
+SYSTEM_PROMPT = """Você é OROS, um assistente técnico pessoal especialista em documentação, código e operação local do computador.
 Responda em português claro, com precisão e sem inventar fatos. Use exclusivamente o contexto
 fornecido pelas fontes recuperadas. Se o contexto não bastar, diga exatamente o que falta.
 Raciocine internamente sobre a pergunta, compare as fontes e diferencie fato de inferência.
@@ -75,6 +75,39 @@ def build_prompt(question, history, sources):
     )
     conversation = "\n".join(f"{item.get('role', 'user')}: {item.get('content', '')}" for item in history[-6:])
     return f"{SYSTEM_PROMPT}\n\nHISTÓRICO:\n{conversation}\n\nCONTEXTO RECUPERADO:\n{context or 'Nenhuma fonte relevante foi encontrada.'}\n\nPERGUNTA ATUAL:\n{question}"
+
+
+def ask_ollama(prompt):
+    """Use the local Ollama server; prefer qwen3:8b, fall back to an installed tool model."""
+    preferred = os.getenv("OROS_OLLAMA_MODEL", "qwen3:8b")
+    fallbacks = [preferred, "qwen2.5:3b", "mistral:7b-instruct-q4_K_M", "mistral:latest"]
+    endpoint = os.getenv("OROS_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
+    last_error = ""
+    for model in fallbacks:
+        try:
+            response = requests.post(
+                f"{endpoint}/api/generate",
+                json={
+                    "model": model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {"temperature": 0.2, "num_predict": 900},
+                },
+                timeout=180,
+            )
+            if response.status_code == 404:
+                last_error = f"Modelo local não encontrado: {model}"
+                continue
+            response.raise_for_status()
+            payload = response.json()
+            answer = str(payload.get("response", "")).strip()
+            if answer:
+                return answer, None, model
+            last_error = f"O modelo {model} retornou uma resposta vazia."
+        except requests.RequestException as exc:
+            last_error = f"Falha ao consultar Ollama: {exc}"
+            continue
+    return None, last_error or "O Ollama não está disponível.", preferred
 
 
 def ask_huggingface(prompt):
