@@ -2,6 +2,13 @@
 
 ## Mandatory local integrations
 
+## OROS orbital identity
+
+The `frontend/oros-core.html` view embeds the Sinaptic-Orbital SVG supplied for
+OROS. It is reused in the home banner and chat welcome state, with the four
+cognitive states synchronized by `postMessage`: idle, listening, processing,
+and speaking.
+
 ## Hands-free voice
 
 OROS uses continuous browser speech recognition after the first explicit

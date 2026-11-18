@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OROS // Arquitetura Sináptico-Orbital</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-void: #030508;
+            --accent-primary: #00f0ff;
+            --accent-secondary: #0077ff;
+            --accent-glow: rgba(0, 240, 255, 0.35);
+            --glass-bg: rgba(7, 11, 18, 0.72);
+            --border-tech: rgba(255, 255, 255, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: var(--bg-void);
+            color: #e2e8f0;
+            font-family: 'Space Grotesk', sans-serif;
+            /* Grade técnica espacial + Vinheta profunda */
+            background-image:
+                radial-gradient(circle at 50% 50%, rgba(12, 22, 38, 0.38) 0%, rgba(3, 5, 8, 0.96) 72%, #020305 100%),
+                linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+            background-size: 100% 100%, 44px 44px, 44px 44px;
+            background-position: center center;
+        }
+
+        .font-mono-tech {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Painéis HUD translúcidos */
+        .hud-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--border-tech);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        /* Botões de Estado Cognitivo */
+        .state-btn {
+            position: relative;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .state-btn:hover {
+            border-color: rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.05);
+            transform: translateY(-1px);
+        }
+
+        .state-btn.active {
+            border-color: var(--accent-primary);
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+            box-shadow: 0 0 22px var(--accent-glow), inset 0 0 12px rgba(255, 255, 255, 0.04);
+        }
+
+        /* Canvas SVG ocupando toda a viewport */
+        #oros-svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            touch-action: none;
+            cursor: grab;
+        }
+
+        #oros-svg:active {
+            cursor: grabbing;
+        }
+
+        @keyframes pulseIndicator {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.45); opacity: 0.45; }
+        }
+
+        .live-dot {
+            animation: pulseIndicator 2s infinite ease-in-out;
+        }
+
+        /* Cantoneiras técnicas nos painéis */
+        .corner-accent {
+            position: relative;
+        }
+        .corner-accent::before {
+            content: '';
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            width: 8px;
+            height: 8px;
+            border-top: 1.5px solid var(--accent-primary);
+            border-left: 1.5px solid var(--accent-primary);
+            border-top-left-radius: 6px;
+            transition: border-color 0.4s ease;
+        }
+    </style>
+</head>
+<body class="flex flex-col justify-between relative">
+
+    <!-- HUD SUPERIOR: Identidade OROS & Telemetria em Tempo Real -->
+    <header class="z-20 w-full px-4 pt-4 md:px-7 md:pt-6 flex flex-wrap items-start justify-between gap-3 pointer-events-none">
+        
+        <!-- Canto Superior Esquerdo: Identidade do Núcleo -->
+        <div class="hud-panel corner-accent rounded-xl px-4 py-3 flex items-center gap-3.5 pointer-events-auto">
+            <div class="w-9 h-9 rounded-full border border-white/15 bg-black/50 flex items-center justify-center relative">
+                <span id="status-led" class="live-dot w-2.5 h-2.5 rounded-full bg-[#00f0ff] shadow-[0_0_12px_#00f0ff]"></span>
+            </div>
+            <div>
+                <div class="flex items-center gap-2.5">
+                    <h1 class="font-bold tracking-[0.26em] text-base md:text-lg text-white leading-none">OROS</h1>
+                    <span class="font-mono-tech text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-slate-400 border border-white/10">SYNAPSE-ASTRO // v5.0</span>
+                </div>
+                <p id="hud-state-label" class="font-mono-tech text-[11px] text-slate-400 mt-1 tracking-wider">ESTADO // REPOUSO_ESTÁVEL</p>
+            </div>
+        </div>
+
+        <!-- Canto Superior Direito: Telemetria Dinâmica -->
+        <div class="hud-panel rounded-xl px-4 py-2.5 font-mono-tech text-[11px] text-slate-400 flex items-center gap-4 md:gap-6 pointer-events-auto">
+            <div>
+                <div class="text-[9px] text-slate-500 uppercase tracking-widest">Sinapses Ativas</div>
+                <div id="tele-synapses" class="text-white font-bold text-xs md:text-sm mt-0.5">14 / 48</div>
+            </div>
+            <div class="h-6 w-[1px] bg-white/10"></div>
+            <div>
+                <div class="text-[9px] text-slate-500 uppercase tracking-widest">Alinhamento Orbital</div>
+                <div id="tele-alignment" class="text-white font-bold text-xs md:text-sm mt-0.5">34.2%</div>
+            </div>
+            <div class="h-6 w-[1px] bg-white/10 hidden sm:block"></div>
+            <div class="hidden sm:block">
+                <div class="text-[9px] text-slate-500 uppercase tracking-widest">Ressonância</div>
+                <div id="tele-freq" class="text-white font-bold text-xs md:text-sm mt-0.5">14.8 Hz</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- PALCO CENTRAL SVG (100% Viewport) -->
+    <main class="absolute inset-0 z-10 flex items-center justify-center">
+        <svg id="oros-svg" viewBox="-500 -500 1000 1000" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <!-- Brilho Suave para Partículas e Arestas -->
+                <filter id="glow-soft" x="-40%" y="-40%" width="180%" height="180%">
+                    <feGaussianBlur stdDeviation="3.5" result="blur1" />
+                    <feMerge>
+                        <feMergeNode in="blur1" />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
+
+                <!-- Brilho Intenso para Impulsos Sinápticos e Singularidade -->
+                <filter id="glow-intense" x="-70%" y="-70%" width="240%" height="240%">
+                    <feGaussianBlur stdDeviation="4" result="blur1" />
+                    <feGaussianBlur stdDeviation="14" result="blur2" />
+                    <feMerge>
+                        <feMergeNode in="blur2" />
+                        <feMergeNode in="blur1" />
+                        <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                </filter>
+
+                <!-- Halo Radial da Singularidade Central -->
+                <radialGradient id="singularity-grad" cx="50%" cy="50%" r="50%">
+                    <stop id="grad-core-1" offset="0%" stop-color="#ffffff" stop-opacity="0.95" />
+                    <stop id="grad-core-2" offset="25%" stop-color="#00f0ff" stop-opacity="0.55" />
+                    <stop id="grad-core-3" offset="65%" stop-color="#0077ff" stop-opacity="0.12" />
+                    <stop offset="100%" stop-color="#030508" stop-opacity="0" />
+                </radialGradient>
+            </defs>
+
+            <!-- Retículo Espacial de Fundo (HUD Fixo sutil) -->
+            <g id="space-reticle" opacity="0.18" stroke="#94a3b8" fill="none">
+                <circle cx="0" cy="0" r="335" stroke-width="0.6" stroke-dasharray="2 10" />
+                <circle cx="0" cy="0" r="415" stroke-width="0.5" stroke-dasharray="1 18" />
+                <line x1="-455" y1="0" x2="-425" y2="0" stroke-width="0.8" />
+                <line x1="425" y1="0" x2="455" y2="0" stroke-width="0.8" />
+                <line x1="0" y1="-455" x2="0" y2="-425" stroke-width="0.8" />
+                <line x1="0" y1="425" x2="0" y2="455" stroke-width="0.8" />
+            </g>
+
+            <!-- Camada 1: Singularidade Central & Ondas de Ping Sináptico -->
+            <g id="layer-singularity">
+                <circle id="singularity-halo" cx="0" cy="0" r="145" fill="url(#singularity-grad)" />
+                <g id="ping-waves-group" filter="url(#glow-intense)"></g>
+                <circle id="singularity-core" cx="0" cy="0" r="9" fill="#ffffff" filter="url(#glow-intense)" />
+            </g>
+
+            <!-- Camada 2: Arcos Graduados e Guias Orbitais do Astrolábio -->
+            <g id="layer-astrolabe-guides"></g>
+
+            <!-- Camada 3: Arestas da Rede Sináptica Central -->
+            <g id="layer-synaptic-edges"></g>
+
+            <!-- Camada 4: Pontes Sináptico-Orbitais (A Fusão entre Núcleo e Anéis) -->
+            <g id="layer-hybrid-bridges" filter="url(#glow-intense)"></g>
+
+            <!-- Camada 5: Partículas dos Anéis Giroscópicos (Centenas de micropartículas) -->
+            <g id="layer-astrolabe-particles"></g>
+
+            <!-- Camada 6: Nós de Memória do Grafo 3D -->
+            <g id="layer-synaptic-nodes"></g>
+
+            <!-- Camada 7: Impulsos Elétricos Internos (Sinapses) -->
+            <g id="layer-synaptic-pulses" filter="url(#glow-intense)"></g>
+        </svg>
+    </main>
+
+    <!-- HUD INFERIOR: Instruções & Seletor de Estados Cognitivos -->
+    <footer class="z-20 w-full px-4 pb-4 md:px-7 md:pb-6 flex flex-col md:flex-row items-center justify-between gap-3 pointer-events-none">
+        
+        <!-- Dica de Interação -->
+        <div class="hud-panel rounded-xl px-3.5 py-2 font-mono-tech text-[10px] text-slate-400 flex items-center gap-3 pointer-events-auto">
+            <span class="text-white/80">INTERAÇÃO:</span>
+            <span>[ARRASTAR] Rotacionar 3D</span>
+            <span class="text-white/20">|</span>
+            <span>[CLIQUE] Ping Sináptico</span>
+            <span class="text-white/20 hidden sm:inline">|</span>
+            <span class="hidden sm:inline">[TECLAS 1-4] Estados</span>
+        </div>
+
+        <!-- Barra de Estados Cognitivos -->
+        <div class="hud-panel rounded-2xl p-1.5 grid grid-cols-2 sm:flex items-center gap-1.5 pointer-events-auto w-full md:w-auto">
+            <button data-state="idle" class="state-btn active rounded-xl px-3.5 py-2 text-xs font-medium flex items-center justify-center gap-2 text-slate-300">
+                <span class="w-2 h-2 rounded-full bg-[#00f0ff] shadow-[0_0_8px_#00f0ff]"></span>
+                <span>Repouso</span>
+                <span class="font-mono-tech text-[9px] text-slate-500 ml-0.5">1</span>
+            </button>
+
+            <button data-state="listening" class="state-btn rounded-xl px-3.5 py-2 text-xs font-medium flex items-center justify-center gap-2 text-slate-300">
+                <span class="w-2 h-2 rounded-full bg-[#00ffaa] shadow-[0_0_8px_#00ffaa]"></span>
+                <span>Ouvindo</span>
+                <span class="font-mono-tech text-[9px] text-slate-500 ml-0.5">2</span>
+            </button>
+
+            <button data-state="processing" class="state-btn rounded-xl px-3.5 py-2 text-xs font-medium flex items-center justify-center gap-2 text-slate-300">
+                <span class="w-2 h-2 rounded-full bg-[#ffaa00] shadow-[0_0_8px_#ffaa00]"></span>
+                <span>Processando</span>
+                <span class="font-mono-tech text-[9px] text-slate-500 ml-0.5">3</span>
+            </button>
+
+            <button data-state="speaking" class="state-btn rounded-xl px-3.5 py-2 text-xs font-medium flex items-center justify-center gap-2 text-slate-300">
+                <span class="w-2 h-2 rounded-full bg-[#b84dff] shadow-[0_0_8px_#b84dff]"></span>
+                <span>Falando</span>
+                <span class="font-mono-tech text-[9px] text-slate-500 ml-0.5">4</span>
+            </button>
+        </div>
+    </footer>
+
+    <script>
+        /**
+         * OROS // ARQUITETURA HÍBRIDA: REDE SINÁPTICA + ASTROLÁBIO QUÂNTICO
+         * Motor 3D em SVG Puro a 60 FPS com projeção de perspectiva, física de rotação
+         * com inércia, disparo de pontes sináptico-orbitais e ondas de choque interativas.
+         */
+
+        const SVG_NS = "http://www.w3.org/2000/svg";
+
+        // Paletas e Comportamento Físico dos 4 Estados Cognitivos
+        const STATES = {
+            idle: {
+                key: '1',
+                label: "ESTADO // REPOUSO_ESTÁVEL",
+                primary: "#00f0ff",    // Ciano Elétrico
+                secondary: "#0077ff",  // Azul Profundo
+                glow: "rgba(0, 240, 255, 0.35)",
+                ringSpeed: 0.45,
+                synapseSpeed: 0.75,
+                contraction: 1.0,
+                audioAmp: 0.08,
+                bridgeSpawnRate: 0.04,
+                baseFreq: 14.8
+            },
+            listening: {
+                key: '2',
+                label: "ESTADO // CAPTANDO_ENTRADA",
+                primary: "#00ffaa",    // Esmeralda
+                secondary: "#00b894",  // Verde-Água
+                glow: "rgba(0, 255, 170, 0.4)",
+                ringSpeed: 0.35,
+                synapseSpeed: 0.9,
+                contraction: 0.84,     // Contração gravitacional captando ondas
+                audioAmp: 0.22,
+                bridgeSpawnRate: 0.14,
+                baseFreq: 28.4
+            },
+            processing: {
+                key: '3',
+                label: "ESTADO // SÍNTESE_QUÂNTICA",
+                primary: "#ffaa00",    // Âmbar / Dourado
+                secondary: "#ff5500",  // Laranja Solar
+                glow: "rgba(255, 170, 0, 0.45)",
+                ringSpeed: 2.25,       // Aceleração giroscópica
+                synapseSpeed: 2.35,    // Cascata sináptica rápida
+                contraction: 1.06,
+                audioAmp: 0.32,
+                bridgeSpawnRate: 0.34,
+                baseFreq: 96.2
+            },
+            speaking: {
+                key: '4',
+                label: "ESTADO // MODULAÇÃO_VOCAL",
+                primary: "#b84dff",    // Violeta / Magenta
+                secondary: "#ff2a85",  // Magenta Elétrico
+                glow: "rgba(184, 77, 255, 0.45)",
+                ringSpeed: 0.95,
+                synapseSpeed: 1.45,
+                contraction: 1.02,
+                audioAmp: 1.0,         // Modulação rítmica intensa
+                bridgeSpawnRate: 0.22,
+                baseFreq: 52.6
+            }
+        };
+
+        // Estado Global da Simulação
+        const sim = {
+            state: 'idle',
+            time: 0,
+            lastTime: performance.now(),
+            // Parâmetros suavizados por interpolação (lerp)
+            cur: {
+                ringSpeed: 0.45,
+                synapseSpeed: 0.75,
+                contraction: 1.0,
+                audioAmp: 0.08,
+                alignment: 0.0,
+                primaryRgb: [0, 240, 255],
+                secondaryRgb: [0, 119, 255]
+            },
+            // Controle de Câmera 3D com Inércia
+            cam: {
+                rotX: 0.28,
+                rotY: 0.0,
+                velX: 0.0,
+                velY: 0.0025,
+                isDragging: false,
+                lastX: 0,
+                lastY: 0,
+                dragDistance: 0
+            }
+        };
+
+        // Funções Utilitárias
+        function hexToRgb(hex) {
+            const num = parseInt(hex.slice(1), 16);
+            return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+        }
+
+        function rgbToHex(r, g, b) {
+            return "#" + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+        }
+
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
+
+        function svgEl(tag, attrs = {}) {
+            const el = document.createElementNS(SVG_NS, tag);
+            for (const [k, v] of Object.entries(attrs)) {
+                el.setAttribute(k, v);
+            }
+            return el;
+        }
+
+        // Rotação 3D Euler (Z -> X -> Y)
+        function rotate3D(x, y, z, ax, ay, az = 0) {
+            let x1 = x, y1 = y, z1 = z;
+            if (az !== 0) {
+                const cz = Math.cos(az), sz = Math.sin(az);
+                x1 = x * cz - y * sz;
+                y1 = x * sz + y * cz;
+            }
+            const cx = Math.cos(ax), sx = Math.sin(ax);
+            const y2 = y1 * cx - z1 * sx;
+            const z2 = y1 * sx + z1 * cx;
+
+            const cy = Math.cos(ay), sy = Math.sin(ay);
+            const x3 = x1 * cy - z2 * sy;
+            const z3 = x1 * sy + z2 * cy;
+
+            return { x: x3, y: y2, z: z3 };
+        }
+
+        // Projeção Perspectiva 3D -> 2D
+        function project(x, y, z, fov = 720) {
+            const rotated = rotate3D(x, y, z, sim.cam.rotX, sim.cam.rotY, 0);
+            const scale = fov / (fov + rotated.z + 320);
+            return {
+                wx: rotated.x,
+                wy: rotated.y,
+                wz: rotated.z,
+                x: rotated.x * scale,
+                y: rotated.y * scale,
+                scale: Math.max(0.15, scale)
+            };
+        }
+
+        // =========================================================================
+        // 1. NÚCLEO SINÁPTICO CENTRAL (GRAFO NEURAL 3D DE ~48 NÓS)
+        // =========================================================================
+        const SynapticCore = (() => {
+            const nodesGroup = document.getElementById('layer-synaptic-nodes');
+            const edgesGroup = document.getElementById('layer-synaptic-edges');
+            const pulsesGroup = document.getElementById('layer-synaptic-pulses');
+
+            const NUM_NODES = 48;
+            const CONNECTION_DIST = 112;
+            const nodes = [];
+            const edges = [];
+            const pulses = [];
+
+            function init() {
+                // Distribuição esférica Fibonacci com variação orgânica de camadas
+                const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+                for (let i = 0; i < NUM_NODES; i++) {
+                    const yNorm = 1 - (i / (NUM_NODES - 1)) * 2;
+                    const radiusAtY = Math.sqrt(1 - yNorm * yNorm);
+                    const theta = goldenAngle * i;
+
+                    // Nós internos (núcleo) e nós periféricos (ponte para os anéis)
+                    const layerOffset = (i % 3 === 0) ? 148 : ((i % 2 === 0) ? 115 : 82);
+                    const isPeripheral = layerOffset >= 145;
+                    const isHub = i % 6 === 0;
+
+                    const node = {
+                        id: i,
+                        bx: Math.cos(theta) * radiusAtY * layerOffset,
+                        by: yNorm * layerOffset,
+                        bz: Math.sin(theta) * radiusAtY * layerOffset,
+                        // Posição atual 3D e 2D projetada
+                        x: 0, y: 0, z: 0,
+                        px: 0, py: 0, scale: 1,
+                        phase: Math.random() * Math.PI * 2,
+                        isPeripheral,
+                        isHub,
+                        baseRadius: isHub ? 4.4 : (isPeripheral ? 3.2 : 2.3),
+                        energy: 0,
+                        el: svgEl('circle', {
+                            r: isHub ? 4.4 : 2.5,
+                            filter: isHub ? 'url(#glow-soft)' : ''
+                        }),
+                        haloEl: isHub ? svgEl('circle', {
+                            r: 9,
+                            fill: 'none',
+                            'stroke-width': '0.8',
+                            'stroke-dasharray': '2 3'
+                        }) : null
+                    };
+
+                    nodesGroup.appendChild(node.el);
+                    if (node.haloEl) nodesGroup.appendChild(node.haloEl);
+                    nodes.push(node);
+                }
+
+                // Constrói arestas por proximidade 3D
+                for (let i = 0; i < NUM_NODES; i++) {
+                    for (let j = i + 1; j < NUM_NODES; j++) {
+                        const dist = Math.hypot(
+                            nodes[i].bx - nodes[j].bx,
+                            nodes[i].by - nodes[j].by,
+                            nodes[i].bz - nodes[j].bz
+                        );
+                        if (dist < CONNECTION_DIST) {
+                            const line = svgEl('line', {
+                                'stroke-width': '0.85',
+                                'stroke-linecap': 'round'
+                            });
+                            edgesGroup.appendChild(line);
+                            edges.push({ a: i, b: j, dist, el: line });
+                        }
+                    }
+                }
+
+                // Pool de 28 impulsos elétricos percorrendo as arestas
+                for (let i = 0; i < 28; i++) {
+                    const el = svgEl('circle', { r: 2.3, fill: '#ffffff' });
+                    pulsesGroup.appendChild(el);
+                    pulses.push({
+                        edgeIdx: Math.floor(Math.random() * edges.length),
+                        progress: Math.random(),
+                        speed: 0.016 + Math.random() * 0.022,
+                        reverse: Math.random() > 0.5,
+                        el
+                    });
+                }
+            }
+
+            function getPeripheralNodes() {
+                return nodes.filter(n => n.isPeripheral);
+            }
+
+            function triggerShockwave(waveRadius) {
+                for (let i = 0; i < NUM_NODES; i++) {
+                    const n = nodes[i];
+                    const r = Math.hypot(n.x, n.y, n.z);
+                    if (Math.abs(r - waveRadius) < 28) {
+                        n.energy = Math.max(n.energy, 1.0);
+                    }
+                }
+            }
+
+            function update(dt, audioWave, primaryColor, secondaryColor, onNodeEnergized) {
+                const t = sim.time;
+                const contraction = sim.cur.contraction;
+                const speedMult = sim.cur.synapseSpeed;
+
+                // Atualiza Nós 3D
+                for (let i = 0; i < NUM_NODES; i++) {
+                    const n = nodes[i];
+                    const osc = Math.sin(t * 1.6 + n.phase) * 5.5;
+                    const voiceExpand = 1 + audioWave * (n.isPeripheral ? 0.18 : 0.11);
+
+                    n.x = n.bx * contraction * voiceExpand + Math.cos(t * 1.1 + n.phase) * 3.5;
+                    n.y = n.by * contraction * voiceExpand + osc;
+                    n.z = n.bz * contraction * voiceExpand;
+
+                    const proj = project(n.x, n.y, n.z);
+                    n.px = proj.x;
+                    n.py = proj.y;
+                    n.scale = proj.scale;
+
+                    n.energy = Math.max(0, n.energy - 0.028);
+
+                    const rFinal = (n.baseRadius + n.energy * 3.2 + (n.isHub ? audioWave * 2.2 : 0)) * n.scale;
+                    n.el.setAttribute('cx', n.px.toFixed(1));
+                    n.el.setAttribute('cy', n.py.toFixed(1));
+                    n.el.setAttribute('r', Math.max(1.1, rFinal).toFixed(2));
+                    n.el.setAttribute('fill', n.energy > 0.45 ? '#ffffff' : (n.isHub || n.isPeripheral ? primaryColor : secondaryColor));
+                    n.el.setAttribute('opacity', Math.min(1, n.scale * 0.92).toFixed(2));
+
+                    if (n.haloEl) {
+                        n.haloEl.setAttribute('cx', n.px.toFixed(1));
+                        n.haloEl.setAttribute('cy', n.py.toFixed(1));
+                        n.haloEl.setAttribute('r', (rFinal * 2.05).toFixed(1));
+                        n.haloEl.setAttribute('stroke', primaryColor);
+                        n.haloEl.setAttribute('opacity', (0.3 * n.scale + n.energy * 0.55).toFixed(2));
+                    }
+                }
+
+                // Atualiza Arestas
+                for (let i = 0; i < edges.length; i++) {
+                    const e = edges[i];
+                    const nA = nodes[e.a];
+                    const nB = nodes[e.b];
+                    const avgScale = (nA.scale + nB.scale) * 0.5;
+                    const glowLevel = Math.max(nA.energy, nB.energy);
+
+                    e.el.setAttribute('x1', nA.px.toFixed(1));
+                    e.el.setAttribute('y1', nA.py.toFixed(1));
+                    e.el.setAttribute('x2', nB.px.toFixed(1));
+                    e.el.setAttribute('y2', nB.py.toFixed(1));
+                    e.el.setAttribute('stroke', glowLevel > 0.25 ? primaryColor : secondaryColor);
+                    e.el.setAttribute('stroke-opacity', Math.min(0.75, avgScale * 0.22 + glowLevel * 0.5).toFixed(2));
+                }
+
+                // Atualiza Pulsos Internos
+                const activeLimit = sim.state === 'processing' ? 28 : (sim.state === 'idle' ? 12 : 20);
+                let activeCount = 0;
+
+                for (let i = 0; i < pulses.length; i++) {
+                    const p = pulses[i];
+                    if (i >= activeLimit) {
+                        p.el.setAttribute('opacity', '0');
+                        continue;
+                    }
+                    activeCount++;
+
+                    p.progress += p.speed * speedMult;
+                    if (p.progress >= 1) {
+                        p.progress = 0;
+                        const finishedEdge = edges[p.edgeIdx];
+                        const arrivedIdx = p.reverse ? finishedEdge.a : finishedEdge.b;
+                        const arrivedNode = nodes[arrivedIdx];
+                        arrivedNode.energy = 1.0;
+
+                        // Se atingiu um nó periférico, dispara uma ponte para o Astrolábio!
+                        if (arrivedNode.isPeripheral && onNodeEnergized) {
+                            onNodeEnergized(arrivedNode);
+                        }
+
+                        // Escolhe próxima aresta conectada
+                        const nextEdges = [];
+                        for (let k = 0; k < edges.length; k++) {
+                            if (edges[k].a === arrivedIdx || edges[k].b === arrivedIdx) {
+                                nextEdges.push(k);
+                            }
+                        }
+                        if (nextEdges.length > 0) {
+                            const chosen = nextEdges[Math.floor(Math.random() * nextEdges.length)];
+                            p.edgeIdx = chosen;
+                            p.reverse = edges[chosen].b === arrivedIdx;
+                        }
+                    }
+
+                    const edge = edges[p.edgeIdx];
+                    const startN = p.reverse ? nodes[edge.b] : nodes[edge.a];
+                    const endN = p.reverse ? nodes[edge.a] : nodes[edge.b];
+
+                    const px = lerp(startN.px, endN.px, p.progress);
+                    const py = lerp(startN.py, endN.py, p.progress);
+                    const pScale = lerp(startN.scale, endN.scale, p.progress);
+
+                    p.el.setAttribute('cx', px.toFixed(1));
+                    p.el.setAttribute('cy', py.toFixed(1));
+                    p.el.setAttribute('r', (2.4 * pScale).toFixed(2));
+                    p.el.setAttribute('opacity', Math.min(1, pScale * 0.95).toFixed(2));
+                }
+
+                return { nodes, activeCount };
+            }
+
+            return { init, update, getPeripheralNodes, triggerShockwave };
+        })();
+
+        // =========================================================================
+        // 2. ASTROLÁBIO QUÂNTICO / OUROBOROS (4 ANÉIS GIROSCÓPICOS + PARTÍCULAS)
+        // =========================================================================
+        const AstrolabeRings = (() => {
+            const guidesGroup = document.getElementById('layer-astrolabe-guides');
+            const particlesGroup = document.getElementById('layer-astrolabe-particles');
+
+            // 4 Anéis concêntricos com inclinações, velocidades e densidades distintas
+            const ringsConfig = [
+                { id: 0, radius: 192, count: 64,  tiltX: 0.68,  tiltY: 0.25,  speed: 0.95,  pSize: 1.85, dashed: true },
+                { id: 1, radius: 235, count: 84,  tiltX: -0.52, tiltY: 0.72,  speed: -0.72, pSize: 1.75, dashed: false },
+                { id: 2, radius: 280, count: 104, tiltX: 0.85,  tiltY: -0.45, speed: 0.52,  pSize: 1.65, dashed: true },
+                { id: 3, radius: 325, count: 124, tiltX: -0.28, tiltY: -0.65, speed: -0.36, pSize: 1.50, dashed: false }
+            ];
+
+            const rings = [];
+
+            function init() {
+                ringsConfig.forEach(cfg => {
+                    const guidePath = svgEl('path', {
+                        fill: 'none',
+                        'stroke-width': '0.65',
+                        'stroke-dasharray': cfg.dashed ? '3 7' : 'none',
+                        opacity: '0.32'
+                    });
+                    guidesGroup.appendChild(guidePath);
+
+                    // Arco graduado de telemetria (setor iluminado que gira no anel)
+                    const telemetryArc = svgEl('path', {
+                        fill: 'none',
+                        'stroke-width': '2.2',
+                        'stroke-linecap': 'round',
+                        filter: 'url(#glow-soft)',
+                        opacity: '0.75'
+                    });
+                    guidesGroup.appendChild(telemetryArc);
+
+                    const particles = [];
+                    for (let i = 0; i < cfg.count; i++) {
+                        const baseAngle = (i / cfg.count) * Math.PI * 2;
+                        const isMarker = i % 16 === 0;
+                        const el = svgEl('circle', {
+                            r: isMarker ? cfg.pSize * 1.9 : cfg.pSize,
+                            filter: isMarker ? 'url(#glow-soft)' : ''
+                        });
+                        particlesGroup.appendChild(el);
+
+                        particles.push({
+                            baseAngle,
+                            isMarker,
+                            charge: 0, // Energia recebida de pontes sinápticas
+                            x: 0, y: 0, z: 0,
+                            px: 0, py: 0, scale: 1,
+                            el
+                        });
+                    }
+
+                    rings.push({
+                        ...cfg,
+                        guidePath,
+                        telemetryArc,
+                        particles,
+                        curTiltX: cfg.tiltX,
+                        curTiltY: cfg.tiltY,
+                        curTiltZ: 0,
+                        curRadius: cfg.radius
+                    });
+                });
+            }
+
+            // Ilumina um setor de partículas de um anel quando atingido por uma ponte sináptica
+            function energizeSector(ringIdx, targetX, targetY, targetZ) {
+                const ring = rings[ringIdx];
+                if (!ring) return;
+                for (let i = 0; i < ring.particles.length; i++) {
+                    const p = ring.particles[i];
+                    const d = Math.hypot(p.x - targetX, p.y - targetY, p.z - targetZ);
+                    if (d < 75) {
+                        p.charge = Math.max(p.charge, (1 - d / 75) * 1.2);
+                    }
+                }
+            }
+
+            function triggerShockwave(waveRadius) {
+                rings.forEach(ring => {
+                    if (Math.abs(ring.curRadius - waveRadius) < 32) {
+                        ring.particles.forEach(p => {
+                            p.charge = Math.max(p.charge, 0.95);
+                        });
+                    }
+                });
+            }
+
+            function update(dt, audioWave, primaryColor, secondaryColor) {
+                const t = sim.time;
+                const speedMult = sim.cur.ringSpeed;
+                const contraction = sim.cur.contraction;
+                const align = sim.cur.alignment; // 0 = livre, 1 = alinhamento harmônico
+
+                rings.forEach((ring, idx) => {
+                    // Raio reage à contração (Ouvindo) e à modulação vocal (Falando)
+                    const waveOffset = audioWave * (14 - idx * 2.2);
+                    ring.curRadius = ring.radius * contraction + waveOffset;
+
+                    // Eixos giroscópicos: no estado 'processing', convergem para alinhamento harmônico
+                    const freeTiltX = ring.tiltX + Math.sin(t * 0.55 + idx * 1.2) * 0.28;
+                    const freeTiltY = ring.tiltY + Math.cos(t * 0.48 + idx * 1.5) * 0.28;
+                    const alignedTiltX = 0.15 * Math.sin(t * 1.5);
+                    const alignedTiltY = 0.15 * Math.cos(t * 1.5);
+
+                    ring.curTiltX = lerp(freeTiltX, alignedTiltX, align);
+                    ring.curTiltY = lerp(freeTiltY, alignedTiltY, align);
+                    ring.curTiltZ = t * 0.18 * (idx % 2 === 0 ? 1 : -1);
+
+                    // Constrói linha guia orbital completa em 3D
+                    let guideD = "";
+                    const segs = 60;
+                    for (let s = 0; s <= segs; s++) {
+                        const a = (s / segs) * Math.PI * 2;
+                        const local = rotate3D(Math.cos(a) * ring.curRadius, Math.sin(a) * ring.curRadius, 0, ring.curTiltX, ring.curTiltY, ring.curTiltZ);
+                        const proj = project(local.x, local.y, local.z);
+                        guideD += (s === 0 ? "M " : " L ") + `${proj.x.toFixed(1)} ${proj.y.toFixed(1)}`;
+                    }
+                    ring.guidePath.setAttribute('d', guideD);
+                    ring.guidePath.setAttribute('stroke', idx % 2 === 0 ? primaryColor : secondaryColor);
+
+                    // Constrói arco graduado de telemetria (setor ativo de ~45 graus)
+                    let arcD = "";
+                    const arcStart = t * ring.speed * speedMult * 0.8 + idx;
+                    const arcSpan = 0.75 + align * 0.6;
+                    const arcSteps = 14;
+                    for (let s = 0; s <= arcSteps; s++) {
+                        const a = arcStart + (s / arcSteps) * arcSpan;
+                        const local = rotate3D(Math.cos(a) * ring.curRadius, Math.sin(a) * ring.curRadius, 0, ring.curTiltX, ring.curTiltY, ring.curTiltZ);
+                        const proj = project(local.x, local.y, local.z);
+                        arcD += (s === 0 ? "M " : " L ") + `${proj.x.toFixed(1)} ${proj.y.toFixed(1)}`;
+                    }
+                    ring.telemetryArc.setAttribute('d', arcD);
+                    ring.telemetryArc.setAttribute('stroke', primaryColor);
+
+                    // Atualiza as centenas de micropartículas orbitais
+                    for (let i = 0; i < ring.particles.length; i++) {
+                        const p = ring.particles[i];
+                        const curAngle = p.baseAngle + t * ring.speed * speedMult * 0.45;
+
+                        const local = rotate3D(
+                            Math.cos(curAngle) * ring.curRadius,
+                            Math.sin(curAngle) * ring.curRadius,
+                            0,
+                            ring.curTiltX,
+                            ring.curTiltY,
+                            ring.curTiltZ
+                        );
+
+                        p.x = local.x;
+                        p.y = local.y;
+                        p.z = local.z;
+
+                        const proj = project(local.x, local.y, local.z);
+                        p.px = proj.x;
+                        p.py = proj.y;
+                        p.scale = proj.scale;
+
+                        p.charge = Math.max(0, p.charge - 0.032);
+
+                        const sizeBoost = p.charge * 2.4 + (p.isMarker ? audioWave * 1.4 : 0);
+                        const finalR = (ring.pSize * (p.isMarker ? 1.85 : 1.0) + sizeBoost) * proj.scale;
+
+                        p.el.setAttribute('cx', proj.x.toFixed(1));
+                        p.el.setAttribute('cy', proj.y.toFixed(1));
+                        p.el.setAttribute('r', Math.max(0.75, finalR).toFixed(2));
+                        p.el.setAttribute('fill', p.charge > 0.35 || p.isMarker ? '#ffffff' : (idx % 2 === 0 ? primaryColor : secondaryColor));
+                        p.el.setAttribute('opacity', Math.min(1, proj.scale * (0.65 + p.charge * 0.35)).toFixed(2));
+                    }
+                });
+            }
+
+            return { init, update, rings, energizeSector, triggerShockwave };
+        })();
+
+        // =========================================================================
+        // 3. PONTES SINÁPTICO-ORBITAIS (A FUSÃO ENTRE O GRAFO E OS ANÉIS)
+        // =========================================================================
+        const HybridBridges = (() => {
+            const bridgesGroup = document.getElementById('layer-hybrid-bridges');
+            const MAX_BRIDGES = 18;
+            const bridges = [];
+
+            function init() {
+                for (let i = 0; i < MAX_BRIDGES; i++) {
+                    const lineEl = svgEl('line', {
+                        'stroke-width': '1.2',
+                        'stroke-linecap': 'round',
+                        opacity: '0'
+                    });
+                    const headEl = svgEl('circle', {
+                        r: '2.8',
+                        fill: '#ffffff',
+                        opacity: '0'
+                    });
+                    bridgesGroup.appendChild(lineEl);
+                    bridgesGroup.appendChild(headEl);
+
+                    bridges.push({
+                        active: false,
+                        progress: 0,
+                        speed: 0.04,
+                        inbound: false, // false = núcleo -> anel | true = anel -> núcleo
+                        nodeRef: null,
+                        ringIdx: 0,
+                        particleIdx: 0,
+                        lineEl,
+                        headEl
+                    });
+                }
+            }
+
+            // Dispara um arco de energia entre um nó periférico e uma partícula orbital próxima
+            function spawn(node, inbound = false) {
+                const slot = bridges.find(b => !b.active);
+                if (!slot) return;
+
+                const rings = AstrolabeRings.rings;
+                // Escolhe um dos anéis internos/médios e busca a partícula mais próxima em 3D
+                const targetRingIdx = inbound
+                    ? Math.floor(Math.random() * rings.length)
+                    : Math.floor(Math.random() * 3);
+                const ring = rings[targetRingIdx];
+
+                let bestIdx = 0;
+                let minDist = Infinity;
+                // Amostragem rápida a cada 2 partículas para máxima eficiência
+                for (let i = 0; i < ring.particles.length; i += 2) {
+                    const p = ring.particles[i];
+                    const d = Math.hypot(p.x - node.x, p.y - node.y, p.z - node.z);
+                    if (d < minDist) {
+                        minDist = d;
+                        bestIdx = i;
+                    }
+                }
+
+                slot.active = true;
+                slot.progress = 0;
+                slot.speed = 0.032 + Math.random() * 0.025;
+                slot.inbound = inbound;
+                slot.nodeRef = node;
+                slot.ringIdx = targetRingIdx;
+                slot.particleIdx = bestIdx;
+            }
+
+            function update(primaryColor) {
+                const rings = AstrolabeRings.rings;
+                let activeBridges = 0;
+
+                for (let i = 0; i < MAX_BRIDGES; i++) {
+                    const b = bridges[i];
+                    if (!b.active) continue;
+
+                    b.progress += b.speed * sim.cur.synapseSpeed;
+                    const ring = rings[b.ringIdx];
+                    const targetParticle = ring.particles[b.particleIdx];
+                    const node = b.nodeRef;
+
+                    if (b.progress >= 1) {
+                        b.active = false;
+                        b.lineEl.setAttribute('opacity', '0');
+                        b.headEl.setAttribute('opacity', '0');
+
+                        // Ao chegar no destino, energiza o setor do anel ou o nó sináptico!
+                        if (b.inbound) {
+                            node.energy = 1.0;
+                        } else {
+                            AstrolabeRings.energizeSector(b.ringIdx, targetParticle.x, targetParticle.y, targetParticle.z);
+                        }
+                        continue;
+                    }
+
+                    activeBridges++;
+
+                    const startX = b.inbound ? targetParticle.px : node.px;
+                    const startY = b.inbound ? targetParticle.py : node.py;
+                    const endX = b.inbound ? node.px : targetParticle.px;
+                    const endY = b.inbound ? node.py : targetParticle.py;
+
+                    // Segmento luminoso viajando pela ponte
+                    const tailProg = Math.max(0, b.progress - 0.35);
+                    const x1 = lerp(startX, endX, tailProg);
+                    const y1 = lerp(startY, endY, tailProg);
+                    const x2 = lerp(startX, endX, b.progress);
+                    const y2 = lerp(startY, endY, b.progress);
+
+                    const alpha = Math.sin(b.progress * Math.PI) * 0.9;
+
+                    b.lineEl.setAttribute('x1', x1.toFixed(1));
+                    b.lineEl.setAttribute('y1', y1.toFixed(1));
+                    b.lineEl.setAttribute('x2', x2.toFixed(1));
+                    b.lineEl.setAttribute('y2', y2.toFixed(1));
+                    b.lineEl.setAttribute('stroke', primaryColor);
+                    b.lineEl.setAttribute('opacity', alpha.toFixed(2));
+
+                    b.headEl.setAttribute('cx', x2.toFixed(1));
+                    b.headEl.setAttribute('cy', y2.toFixed(1));
+                    b.headEl.setAttribute('r', (2.6 * lerp(node.scale, targetParticle.scale, b.progress)).toFixed(2));
+                    b.headEl.setAttribute('opacity', alpha.toFixed(2));
+                }
+
+                return activeBridges;
+            }
+
+            return { init, spawn, update };
+        })();
+
+        // =========================================================================
+        // 4. ONDAS DE CHOQUE INTERATIVAS (PING SINÁPTICO MANUAL)
+        // =========================================================================
+        const PingSystem = (() => {
+            const group = document.getElementById('ping-waves-group');
+            const waves = [];
+
+            function fire() {
+                const circle = svgEl('circle', {
+                    cx: 0, cy: 0, r: 10,
+                    fill: 'none',
+                    'stroke-width': '2.2',
+                    opacity: '0.95'
+                });
+                group.appendChild(circle);
+                waves.push({ r: 10, maxR: 380, alpha: 0.95, el: circle });
+
+                // Também dispara um burst imediato de 6 pontes sináptico-orbitais
+                const peripherals = SynapticCore.getPeripheralNodes();
+                for (let i = 0; i < 6; i++) {
+                    const randNode = peripherals[Math.floor(Math.random() * peripherals.length)];
+                    if (randNode) HybridBridges.spawn(randNode, false);
+                }
+            }
+
+            function update(primaryColor) {
+                for (let i = waves.length - 1; i >= 0; i--) {
+                    const w = waves[i];
+                    w.r += 7.5;
+                    w.alpha = Math.max(0, 1 - w.r / w.maxR);
+
+                    // Propaga energia física pelos nós e anéis conforme a onda expande
+                    SynapticCore.triggerShockwave(w.r);
+                    AstrolabeRings.triggerShockwave(w.r);
+
+                    if (w.r >= w.maxR) {
+                        group.removeChild(w.el);
+                        waves.splice(i, 1);
+                    } else {
+                        w.el.setAttribute('r', w.r.toFixed(1));
+                        w.el.setAttribute('stroke', primaryColor);
+                        w.el.setAttribute('opacity', (w.alpha * 0.8).toFixed(2));
+                        w.el.setAttribute('stroke-width', (2.4 * w.alpha).toFixed(2));
+                    }
+                }
+            }
+
+            return { fire, update };
+        })();
+
+        // =========================================================================
+        // CONTROLE DE ESTADOS, EVENTOS E LOOP PRINCIPAL (60 FPS)
+        // =========================================================================
+        function setCognitiveState(newState) {
+            if (!STATES[newState]) return;
+            sim.state = newState;
+
+            document.querySelectorAll('.state-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.state === newState);
+            });
+
+            const cfg = STATES[newState];
+            document.getElementById('hud-state-label').textContent = cfg.label;
+            document.documentElement.style.setProperty('--accent-primary', cfg.primary);
+            document.documentElement.style.setProperty('--accent-secondary', cfg.secondary);
+            document.documentElement.style.setProperty('--accent-glow', cfg.glow);
+
+            const led = document.getElementById('status-led');
+            led.style.backgroundColor = cfg.primary;
+            led.style.boxShadow = `0 0 12px ${cfg.primary}`;
+        }
+
+        // Public local API: the OROS workspace changes this core from chat, voice,
+        // loading and system events instead of maintaining a separate orb.
+        window.setOrosCognitiveState = setCognitiveState;
+        window.addEventListener('message', (event) => {
+            if (event.source !== window.parent) return;
+            if (event.data?.type === 'OROS_COGNITIVE_STATE') {
+                setCognitiveState(event.data.state);
+            }
+            if (event.data?.type === 'OROS_PING') {
+                PingSystem.fire();
+            }
+        });
+
+        function setupInteractions() {
+            // Botões de Estado
+            document.querySelectorAll('.state-btn').forEach(btn => {
+                btn.addEventListener('click', () => setCognitiveState(btn.dataset.state));
+            });
+
+            // Atalhos de Teclado 1 - 4
+            window.addEventListener('keydown', (e) => {
+                if (e.key === '1') setCognitiveState('idle');
+                if (e.key === '2') setCognitiveState('listening');
+                if (e.key === '3') setCognitiveState('processing');
+                if (e.key === '4') setCognitiveState('speaking');
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    PingSystem.fire();
+                }
+            });
+
+            // Rotação 3D com Inércia + Clique para Ping Sináptico
+            const svgCanvas = document.getElementById('oros-svg');
+
+            svgCanvas.addEventListener('pointerdown', (e) => {
+                sim.cam.isDragging = true;
+                sim.cam.lastX = e.clientX;
+                sim.cam.lastY = e.clientY;
+                sim.cam.dragDistance = 0;
+            });
+
+            window.addEventListener('pointermove', (e) => {
+                if (!sim.cam.isDragging) return;
+                const dx = e.clientX - sim.cam.lastX;
+                const dy = e.clientY - sim.cam.lastY;
+
+                sim.cam.dragDistance += Math.hypot(dx, dy);
+                sim.cam.velY = dx * 0.0045;
+                sim.cam.velX = dy * 0.0045;
+                sim.cam.rotY += sim.cam.velY;
+                sim.cam.rotX += sim.cam.velX;
+
+                sim.cam.lastX = e.clientX;
+                sim.cam.lastY = e.clientY;
+            });
+
+            window.addEventListener('pointerup', () => {
+                if (sim.cam.isDragging && sim.cam.dragDistance < 6) {
+                    // Foi um clique limpo: dispara Ping Sináptico manual!
+                    PingSystem.fire();
+                }
+                sim.cam.isDragging = false;
+            });
+        }
+
+        // Loop Principal de Renderização a 60 FPS
+        function animate(now) {
+            const dt = Math.min(0.05, (now - sim.lastTime) / 1000);
+            sim.lastTime = now;
+            sim.time += dt;
+
+            const targetCfg = STATES[sim.state];
+            const targetPrimRgb = hexToRgb(targetCfg.primary);
+            const targetSecRgb = hexToRgb(targetCfg.secondary);
+
+            // Interpolação suave de física e cores
+            sim.cur.ringSpeed = lerp(sim.cur.ringSpeed, targetCfg.ringSpeed, 0.05);
+            sim.cur.synapseSpeed = lerp(sim.cur.synapseSpeed, targetCfg.synapseSpeed, 0.06);
+            sim.cur.contraction = lerp(sim.cur.contraction, targetCfg.contraction, 0.06);
+            sim.cur.audioAmp = lerp(sim.cur.audioAmp, targetCfg.audioAmp, 0.08);
+
+            const targetAlignment = sim.state === 'processing' ? 0.85 : 0.0;
+            sim.cur.alignment = lerp(sim.cur.alignment, targetAlignment, 0.04);
+
+            for (let c = 0; c < 3; c++) {
+                sim.cur.primaryRgb[c] = lerp(sim.cur.primaryRgb[c], targetPrimRgb[c], 0.07);
+                sim.cur.secondaryRgb[c] = lerp(sim.cur.secondaryRgb[c], targetSecRgb[c], 0.07);
+            }
+
+            const primaryColor = rgbToHex(...sim.cur.primaryRgb);
+            const secondaryColor = rgbToHex(...sim.cur.secondaryRgb);
+
+            // Atualiza gradiente da singularidade central
+            document.getElementById('grad-core-2').setAttribute('stop-color', primaryColor);
+            document.getElementById('grad-core-3').setAttribute('stop-color', secondaryColor);
+
+            // Física de rotação 3D com inércia suave
+            if (!sim.cam.isDragging) {
+                sim.cam.rotY += sim.cam.velY;
+                sim.cam.rotX += sim.cam.velX;
+                // Amortecimento de inércia retornando à velocidade orbital base
+                sim.cam.velY = lerp(sim.cam.velY, 0.0022 * sim.cur.ringSpeed, 0.04);
+                sim.cam.velX = lerp(sim.cam.velX, 0, 0.06);
+            }
+
+            // Simulação procedural de modulação de voz / frequência
+            const rawWave = Math.sin(sim.time * 8.2) * 0.45 +
+                            Math.sin(sim.time * 15.4) * 0.35 +
+                            Math.cos(sim.time * 4.1) * 0.20;
+            const audioWave = Math.max(0, rawWave) * sim.cur.audioAmp;
+
+            // Pulso da Singularidade Central
+            const coreR = (8.5 + Math.sin(sim.time * 2.5) * 1.2 + audioWave * 9.5) * sim.cur.contraction;
+            document.getElementById('singularity-core').setAttribute('r', coreR.toFixed(2));
+            document.getElementById('singularity-halo').setAttribute('r', (coreR * 15.5).toFixed(1));
+
+            // 1. Atualiza Rede Sináptica Central
+            const synResult = SynapticCore.update(dt, audioWave, primaryColor, secondaryColor, (energizedNode) => {
+                if (Math.random() < targetCfg.bridgeSpawnRate * 2.2) {
+                    HybridBridges.spawn(energizedNode, false);
+                }
+            });
+
+            // 2. Atualiza Anéis Giroscópicos do Astrolábio
+            AstrolabeRings.update(dt, audioWave, primaryColor, secondaryColor);
+
+            // 3. No estado 'listening', dispara pontes convergentes dos anéis para o núcleo
+            if (sim.state === 'listening' && Math.random() < targetCfg.bridgeSpawnRate) {
+                const peripherals = SynapticCore.getPeripheralNodes();
+                const randNode = peripherals[Math.floor(Math.random() * peripherals.length)];
+                if (randNode) HybridBridges.spawn(randNode, true);
+            }
+
+            // 4. Atualiza Pontes Sináptico-Orbitais e Ondas de Ping
+            const activeBridges = HybridBridges.update(primaryColor);
+            PingSystem.update(primaryColor);
+
+            // Atualiza Telemetria do HUD a cada ~6 frames
+            if (Math.floor(sim.time * 60) % 6 === 0) {
+                const totalSyn = Math.min(48, synResult.activeCount + activeBridges);
+                document.getElementById('tele-synapses').textContent = `${String(totalSyn).padStart(2, '0')} / 48`;
+
+                const alignPct = (32 + sim.cur.alignment * 67.8 + Math.sin(sim.time * 2) * 1.4).toFixed(1);
+                document.getElementById('tele-alignment').textContent = `${Math.min(99.9, alignPct)}%`;
+
+                const freqVal = (targetCfg.baseFreq + audioWave * 24.5).toFixed(1);
+                document.getElementById('tele-freq').textContent = `${freqVal} Hz`;
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Inicialização
+        window.addEventListener('DOMContentLoaded', () => {
+            SynapticCore.init();
+            AstrolabeRings.init();
+            HybridBridges.init();
+            setupInteractions();
+            requestAnimationFrame(animate);
+        });
+    </script>
+</body>
+</html>

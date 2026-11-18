@@ -38,6 +38,15 @@ document.addEventListener("DOMContentLoaded", () => {
     if (view === "desktop") loadDesktop();
   };
 
+  function setOrosCoreState(cognitiveState) {
+    $$(".oros-core-frame,.oros-chat-core").forEach((frame) => {
+      frame.contentWindow?.postMessage(
+        { type: "OROS_COGNITIVE_STATE", state: cognitiveState },
+        "*",
+      );
+    });
+  }
+
   $$("[data-view]").forEach((button) => button.addEventListener("click", () => setView(button.dataset.view)));
 
   const sidebarCollapse = $("#sidebar-collapse");
@@ -276,7 +285,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function welcomeHtml() {
-    return `<div class="welcome-state"><div class="oros-orb"><span></span></div><h2>Como posso ajudar?</h2><p>Posso navegar, escrever no vault, analisar projetos e controlar o ambiente.</p><div class="suggestions"><button data-prompt="Resuma os projetos que estou desenvolvendo e sugira prioridades">Resumir meus projetos</button><button data-prompt="Analise minha tela atual e diga o que você vê">Analisar minha tela</button><button data-prompt="Crie uma nota de planejamento na pasta 01 Projetos">Criar plano no vault</button></div></div>`;
+    return `<div class="welcome-state"><iframe id="oros-chat-core" class="oros-chat-core" src="/oros-core.html" title="Núcleo cognitivo do OROS"></iframe><h2>Como posso ajudar?</h2><p>Posso navegar, escrever no vault, analisar projetos e controlar o ambiente.</p><div class="suggestions"><button data-prompt="Resuma os projetos que estou desenvolvendo e sugira prioridades">Resumir meus projetos</button><button data-prompt="Analise minha tela atual e diga o que você vê">Analisar minha tela</button><button data-prompt="Crie uma nota de planejamento na pasta 01 Projetos">Criar plano no vault</button></div></div>`;
   }
 
   function bindSuggestions() {
@@ -332,6 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
     messages.scrollTop = messages.scrollHeight;
     $("#send-message").disabled = true;
     $("#chat-status").textContent = "Pensando";
+    setOrosCoreState("processing");
     try {
       const payload = await api("/api/chat", {
         method: "POST",
@@ -341,19 +351,25 @@ document.addEventListener("DOMContentLoaded", () => {
       $("#typing-message")?.remove();
       messages.insertAdjacentHTML("beforeend", renderMessage({ role: "assistant", content: payload.answer, payload }));
       if (state.voiceReply && "speechSynthesis" in window) {
+        setOrosCoreState("speaking");
         const spoken = payload.answer.replace(/[#*_`\[\]]/g, " ").slice(0, 1200);
         const utterance = new SpeechSynthesisUtterance(spoken);
         utterance.lang = "pt-BR";
         utterance.rate = 1.04;
+        utterance.onend = () => setOrosCoreState("idle");
+        utterance.onerror = () => setOrosCoreState("idle");
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utterance);
         state.voiceReply = false;
+      } else {
+        setOrosCoreState("idle");
       }
       if (payload.conversation_id) state.conversationId = payload.conversation_id;
       await loadConversations();
     } catch (error) {
       $("#typing-message")?.remove();
       messages.insertAdjacentHTML("beforeend", renderMessage({ role: "assistant", content: `Não consegui concluir a ação: ${error.message}` }));
+      setOrosCoreState("idle");
     } finally {
       $("#send-message").disabled = false;
       $("#chat-status").textContent = "OROS 1.0";
@@ -856,6 +872,7 @@ document.addEventListener("DOMContentLoaded", () => {
       voiceButton.classList.remove("listening");
       voiceState.textContent = "Voz disponível";
       voiceTranscript.textContent = "Toque no microfone para falar";
+      setOrosCoreState("idle");
     };
 
     const startAudioAnalysis = async () => {
@@ -905,6 +922,7 @@ document.addEventListener("DOMContentLoaded", () => {
       recognition.onstart = () => {
         recognitionActive = true;
         handsFree = true;
+        setOrosCoreState("listening");
         voiceConsole.classList.add("active", "listening");
         voiceButton.classList.add("listening");
         voiceState.textContent = "Escutando pelo wake word";
@@ -985,6 +1003,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   initHolographicCanvas();
   initVoiceInterface();
+  setTimeout(() => setOrosCoreState("idle"), 2000);
 
   loadStatus();
   loadConversations();
