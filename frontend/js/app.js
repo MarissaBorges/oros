@@ -40,6 +40,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (view === "desktop") loadDesktop();
   };
 
+  // A hard reload always restores the normal workspace. Immersive state must
+  // be entered by an explicit click or voice action, never by stale storage.
+  document.body.classList.remove("chat-immersive");
+  localStorage.setItem("oros-hands-free", "false");
+
   function setOrosCoreState(cognitiveState) {
     const accent = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
     const accent2 = getComputedStyle(document.documentElement).getPropertyValue("--accent-2").trim();
@@ -1057,9 +1062,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       else startVoice();
     });
-    if (localStorage.getItem("oros-hands-free") === "true") {
-      setTimeout(() => startVoice(true), 1800);
-    }
   }
 
   initHolographicCanvas();
