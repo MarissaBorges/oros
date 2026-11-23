@@ -1,24 +1,21 @@
 # OROS capability setup
 
-## Mandatory local integrations
-
 ## OROS orbital identity
 
-The `frontend/oros-core.html` view embeds the Sinaptic-Orbital SVG supplied for
+The `frontend/oros-core.html` view embeds the Synaptic-Orbital SVG (`frontend/oros-core.svg`) supplied for
 OROS. It is reused in the home banner and chat welcome state, with the four
-cognitive states synchronized by `postMessage`: idle, listening, processing,
+cognitive states synchronized by `postMessage` and real-time Web Audio FFT: idle, listening, processing,
 and speaking.
 
 ## Hands-free voice
 
-OROS uses continuous browser speech recognition after the first explicit
-microphone activation. Saying `OROS`, `Jarvis` or `Oros` enters listening mode.
-The recognized Portuguese text is sent to the normal chat endpoint and replies
-are spoken with the browser's local speech-synthesis voices.
+OROS provides a cross-browser local voice pipeline that works in Zen Browser, Firefox, and Chrome:
 
-The current backend prefers Ollama `qwen3:8b`. When that model is still
-downloading, `qwen2.5:3b` is used automatically if installed. The configured
-model can be changed with `OROS_OLLAMA_MODEL`.
+- **STT:** OpenJarvis `FasterWhisperBackend` (`faster-whisper` `base` on CPU `int8`) via `POST /api/voice/transcribe`, fed by browser `MediaRecorder` + adaptive Web Audio VAD.
+- **TTS:** Neural Brazilian Portuguese via `edge-tts` (`pt-BR-AntonioNeural` default), local `piper-tts` ONNX, or OpenJarvis `ElevenLabsTTSBackend` at `POST /api/voice/speak`, with browser `speechSynthesis` offline fallback.
+- **Wake Word & Shortcuts:** Always-on PipeWire daemon (`oros-wake.service`) listening for `"OROS"` even when the browser is closed, plus clicking the Synaptic Core or pressing `Alt+V`.
+
+The current backend auto-selects installed tool-calling Ollama models (such as `qwen2.5:3b` or `qwen3:8b`, tuned with `OROS_NUM_CTX=4096` for 4 GB GPUs). The configured model can be overridden with `OROS_OLLAMA_MODEL`.
 
 ### Active context
 
@@ -61,6 +58,10 @@ the report into `05 Recursos/OROS/Pesquisas` in the vault.
 
 `POST /api/code/task` runs an inferred test command inside an allowlisted
 project. It does not silently execute destructive commands.
+
+For deeper code generation, debugging, and refactoring, OROS delegates headless
+jobs to the Antigravity CLI (`agy`) via `POST /api/code/agy`, `GET /api/code/jobs`,
+and `GET /api/code/jobs/<id>`.
 
 `GET /api/google/status` reports the locally configured OpenJarvis Google
 connectors. Account setup remains OAuth-based and credentials stay outside Git.
